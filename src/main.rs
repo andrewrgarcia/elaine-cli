@@ -4,6 +4,8 @@ use std::path::Path;
 
 mod state;
 mod commands;
+mod project;
+mod project_store;
 
 #[derive(Parser)]
 #[command(
