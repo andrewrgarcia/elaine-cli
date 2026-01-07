@@ -16,9 +16,11 @@ struct ElaineIndex {
 #[derive(Debug, Deserialize)]
 struct ProjectFile {
     id: String,
+    #[allow(dead_code)]
     title: Option<String>,
     refs: Vec<String>,
 }
+
 
 /// Entry point for `eln printed`
 pub fn run_printed() {

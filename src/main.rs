@@ -1,6 +1,4 @@
 use clap::{Parser, Subcommand};
-use colored::*;
-use std::path::Path;
 
 mod state;
 mod commands;

@@ -13,10 +13,12 @@ pub fn ref_path(ref_id: &str) -> PathBuf {
     refs_dir().join(format!("{}.yaml", ref_id))
 }
 
+#[allow(dead_code)]
 pub fn ref_exists(ref_id: &str) -> bool {
     ref_path(ref_id).exists()
 }
 
+#[allow(dead_code)]
 pub fn load_ref(ref_id: &str) -> Reference {
     let path = ref_path(ref_id);
 
