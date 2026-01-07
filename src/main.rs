@@ -8,6 +8,7 @@ mod project;
 mod project_store;
 mod reference;
 mod reference_store;
+mod bibtex;
 
 #[derive(Parser)]
 #[command(
@@ -26,6 +27,9 @@ enum Commands {
     /// Initialize a new Elaine registry (.elaine/)
     Init,
 
+    /// Add references (paste BibTeX via stdin)
+    Add,
+
     /// Show current Elaine status
     Status,
 
@@ -43,6 +47,7 @@ fn main() {
 
     match cli.command {
         Commands::Init => commands::init::run_init(),
+        Commands::Add => commands::add::run_add(),
         Commands::Status => commands::status::run_status(),
         Commands::Pro { project_id } => commands::pro::run_pro(project_id),
         Commands::Printed => commands::printed::run_printed(),

@@ -2,6 +2,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use colored::*;
 use crate::reference::Reference;
+use std::io::{self, Write};
+
 
 pub fn refs_dir() -> PathBuf {
     Path::new(".elaine").join("refs")
@@ -35,12 +37,40 @@ pub fn save_ref(reference: &Reference) {
         .expect("❌ Failed to write reference file");
 }
 
-pub fn create_ref_if_missing(reference: Reference) {
-    if ref_exists(&reference.id) {
+
+
+pub fn create_or_update_ref(reference: Reference) {
+    let path = ref_path(&reference.id);
+
+    if path.exists() {
         println!(
             "{}",
-            format!("ℹ️  Reference '{}' already exists", reference.id)
+            format!("ℹ️  Reference '{}' already exists.", reference.id)
                 .bright_yellow()
+        );
+
+        print!("Overwrite? [Y/n]: ");
+        io::stdout().flush().unwrap();
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).unwrap();
+        let choice = input.trim().to_lowercase();
+
+        if choice == "n" || choice == "no" {
+            println!(
+                "{}",
+                format!("❌ Skipped reference '{}'", reference.id).red()
+            );
+            return;
+        }
+
+        // default: yes
+        save_ref(&reference);
+        println!(
+            "{}",
+            format!("♻️  Updated reference '{}'", reference.id)
+                .bright_green()
+                .bold()
         );
     } else {
         save_ref(&reference);
@@ -52,3 +82,4 @@ pub fn create_ref_if_missing(reference: Reference) {
         );
     }
 }
+

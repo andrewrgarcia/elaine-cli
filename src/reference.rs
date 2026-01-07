@@ -17,14 +17,13 @@ pub struct Reference {
     pub notes: Option<String>,
 }
 
-
 #[derive(Debug, Serialize, Deserialize)]
 pub enum RefKind {
     Article,
     InProceedings,
     InCollection,
-    Book,
     InBook,
+    Book,
     Misc,
 }
 
@@ -36,7 +35,6 @@ pub struct Identifiers {
     pub url: Option<String>,
 }
 
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Venue {
     pub journal: Option<String>,
@@ -47,20 +45,4 @@ pub struct Venue {
     pub issue: Option<String>,
     pub pages: Option<String>,
     pub address: Option<String>,
-}
-
-
-impl Reference {
-    pub fn new_minimal(id: &str, title: &str) -> Self {
-        Self {
-            id: id.to_string(),
-            title: title.to_string(),
-            authors: Vec::new(),
-            year: None,
-            identifiers: Identifiers::default(),
-            venue: None,
-            tags: Vec::new(),
-            notes: None,
-        }
-    }
 }
