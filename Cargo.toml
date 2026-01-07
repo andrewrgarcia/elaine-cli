@@ -2,6 +2,15 @@
 name = "elaine-cli"
 version = "0.1.0"
 edition = "2024"
+authors = ["Andrew Garcia"]
+description = "An opinionated, local-first CLI reference manager for BibTeX and LaTeX users."
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/andrewrgarcia/elaine-cli"
+homepage = "https://github.com/andrewrgarcia/elaine-cli"
+readme = "README.md"
+keywords = ["bibtex", "latex", "reference-manager", "cli", "research"]
+categories = ["command-line-utilities", "development-tools"]
 
 [[bin]]
 name = "eln"
