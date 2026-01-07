@@ -2,8 +2,7 @@
 <!-- LOGO -->
 <p align="center">
   <!-- TODO: Replace with Elaine logo -->
-  <img width="150" height="691" alt="elaine" src="https://github.com/user-attachments/assets/1d4059ad-5d4d-4695-930b-bedc4fc149f4" />
-
+  <img width="150" alt="elaine" src="https://github.com/user-attachments/assets/1d4059ad-5d4d-4695-930b-bedc4fc149f4" />
 </p>
 
 
