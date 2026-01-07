@@ -5,7 +5,6 @@ edition = "2024"
 authors = ["Andrew Garcia"]
 description = "An opinionated, local-first CLI reference manager for BibTeX and LaTeX users."
 license = "MIT"
-readme = "README.md"
 repository = "https://github.com/andrewrgarcia/elaine-cli"
 homepage = "https://github.com/andrewrgarcia/elaine-cli"
 readme = "README.md"
