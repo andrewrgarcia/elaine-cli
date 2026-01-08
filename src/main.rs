@@ -36,15 +36,14 @@ enum Commands {
         args: Vec<String>,
     },
 
-
-
     /// Show current Elaine status
     Status,
 
     /// Select active project
     Pro {
-        project_id: String,
+        project_id: Option<String>,
     },
+
 
     /// Print BibTeX for active project
     Printed,
