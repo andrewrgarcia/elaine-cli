@@ -7,6 +7,7 @@ mod project_store;
 mod reference;
 mod reference_store;
 mod bibtex;
+mod utils;
 
 #[derive(Parser)]
 #[command(
@@ -26,7 +27,16 @@ enum Commands {
     Init,
 
     /// Add references (paste BibTeX via stdin)
-    Add,
+    Add {
+        /// Interactive mode
+        #[arg(short = 'i', long = "interactive")]
+        interactive: bool,
+
+        #[arg(trailing_var_arg = true)]
+        args: Vec<String>,
+    },
+
+
 
     /// Show current Elaine status
     Status,
@@ -45,7 +55,7 @@ fn main() {
 
     match cli.command {
         Commands::Init => commands::init::run_init(),
-        Commands::Add => commands::add::run_add(),
+        Commands::Add { interactive, args } => commands::add::run_add(interactive, args),
         Commands::Status => commands::status::run_status(),
         Commands::Pro { project_id } => commands::pro::run_pro(project_id),
         Commands::Printed => commands::printed::run_printed(),
