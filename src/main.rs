@@ -37,7 +37,11 @@ enum Commands {
     },
 
     /// Show current Elaine status
-    Status,
+    Status {
+        #[arg(short = 'v', long = "verbose")]
+        verbose: bool,
+    },
+
 
     /// Select active project
     Pro {
@@ -55,7 +59,7 @@ fn main() {
     match cli.command {
         Commands::Init => commands::init::run_init(),
         Commands::Add { interactive, args } => commands::add::run_add(interactive, args),
-        Commands::Status => commands::status::run_status(),
+        Commands::Status { verbose } => commands::status::run_status(verbose),
         Commands::Pro { project_id } => commands::pro::run_pro(project_id),
         Commands::Printed => commands::printed::run_printed(),
     }
