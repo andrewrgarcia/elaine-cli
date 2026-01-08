@@ -36,6 +36,16 @@ enum Commands {
         args: Vec<String>,
     },
 
+    /// Edit an existing reference
+    Edit {
+        ref_id: String,
+    },
+
+    /// Remove a reference from the active project
+    Rm {
+        ref_id: String,
+    },
+
     /// Show current Elaine status
     Status {
         #[arg(short = 'v', long = "verbose")]
@@ -59,6 +69,8 @@ fn main() {
     match cli.command {
         Commands::Init => commands::init::run_init(),
         Commands::Add { interactive, args } => commands::add::run_add(interactive, args),
+        Commands::Edit { ref_id } => commands::edit::run_edit(ref_id),
+        Commands::Rm { ref_id } => commands::rm::run_rm(ref_id),
         Commands::Status { verbose } => commands::status::run_status(verbose),
         Commands::Pro { project_id } => commands::pro::run_pro(project_id),
         Commands::Printed => commands::printed::run_printed(),
