@@ -1,10 +1,8 @@
-
 <!-- LOGO -->
 <p align="center">
   <!-- TODO: Replace with Elaine logo -->
-  <img width="150" alt="elaine" src="https://github.com/user-attachments/assets/1d4059ad-5d4d-4695-930b-bedc4fc149f4" />
+  <img width="100" alt="elaine" src="https://github.com/user-attachments/assets/1d4059ad-5d4d-4695-930b-bedc4fc149f4" />
 </p>
-
 
 <h1 align="center">Elaine</h1>
 
@@ -12,12 +10,12 @@
   <a href="https://crates.io/crates/elaine-cli"><img src="https://img.shields.io/crates/v/elaine-cli.svg" /></a>
   <a href="https://github.com/andrewrgarcia/elaine-cli"><img src="https://img.shields.io/github/stars/andrewrgarcia/elaine-cli" /></a>
   <a href="#"><img src="https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-blue" /></a>
-  <a href="#"><img src="https://img.shields.io/badge/status-v0.1.0-green" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/status-v0.2.0-green" /></a>
 </p>
 
 <p align="center">
   <strong>An opinionated, local-first reference manager for TeX users.</strong><br/>
-  Add BibTeX fast. Organize by project. Print clean, deterministic bibliographies.
+  Add references fast. Organize by project. Print clean, deterministic BibTeX.
 </p>
 
 ---
@@ -27,7 +25,7 @@
 Elaine is a lightweight command-line reference manager designed for researchers, engineers, and writers who work directly with **LaTeX / BibTeX** and want **clarity, determinism, and local ownership**.
 
 Elaine does not try to be a PDF library, a cloud sync tool, or a GUI replacement for Zotero.  
-It focuses on **one thing**: managing references cleanly and printing reliable `.bib` files.
+It focuses on **one thing**: managing references cleanly and compiling reliable `.bib` files.
 
 ---
 
@@ -38,13 +36,13 @@ Most reference managers:
 - Store PDFs you don’t need
 - Depend on cloud sync
 - Hide metadata behind GUIs
-- Produce noisy, unstable BibTeX
+- Produce noisy or unstable BibTeX
 
 Elaine takes a different approach:
 
 - References are **atomic YAML files**
-- Projects are **explicit collections of references**
-- BibTeX output is **deterministic and minimal**
+- Projects are **explicit collections**
+- BibTeX output is **deterministic**
 - Everything is **local, transparent, and versionable**
 
 ---
@@ -62,6 +60,7 @@ Each reference is stored as a single YAML file:
 ```
 
 This makes references:
+
 - editable
 - diffable
 - reusable across projects
@@ -140,11 +139,11 @@ Creates the `.elaine/` directory structure.
 
 ### Add references
 
-```bash
-eln add
-```
+#### 1. BibTeX via stdin
 
-Paste one or more BibTeX entries via stdin.
+```bash
+eln add < references.bib
+```
 
 Elaine will:
 
@@ -155,13 +154,70 @@ Elaine will:
 
 ---
 
+#### 2. Manual add (fast)
+
+```bash
+eln add "Title" "Author One and Author Two" 2024
+```
+
+Only **title** and **author(s)** are required.
+Year is optional.
+
+---
+
+#### 3. Interactive mode
+
+```bash
+eln add -i
+```
+
+Guided, prompt-based entry for all supported metadata fields
+(press Enter to skip optional fields).
+
+---
+
 ### Manage projects
 
 ```bash
 eln pro <project-name>
 ```
 
-Create or switch the active project.
+Creates or switches the active project.
+
+```bash
+eln pro
+```
+
+Lists all projects and highlights the active one.
+
+---
+
+### View status
+
+```bash
+eln status
+```
+
+Shows all projects and reference counts.
+
+```bash
+eln status -v
+```
+
+Verbose mode: includes reference IDs per project.
+
+---
+
+### Remove references
+
+```bash
+eln rm <ref-id>
+```
+
+Removes a reference from the active project.
+
+If the reference is unused globally, Elaine will ask whether to delete
+the reference file as well.
 
 ---
 
@@ -179,9 +235,9 @@ Generates a deterministic BibTeX file:
 
 And prints the same content to the CLI.
 
-Example output:
+Example:
 
-```text
+```
 🖨️  Printed 14 references → crystal_growth_review_references.bib
 ```
 
@@ -190,19 +246,16 @@ Example output:
 ## Example Workflow
 
 ```bash
-# Initialize
 eln init
-
-# Create / switch project
 eln pro crystal_growth_review
 
-# Add references
 eln add < references.bib
+eln add "No Free Lunch Theorems" "Wolpert, D.H. and Macready, W.G." 1997
+eln add -i
 
-# Print bibliography
+eln status
 eln printed
 
-# Use in LaTeX
 \\bibliography{crystal_growth_review_references}
 ```
 
@@ -222,14 +275,15 @@ Elaine is built around a few non-negotiables:
 
 ## Status
 
-Elaine is currently **v0.1.0**.
+Elaine is currently **v0.2.0**.
 
-The core workflow is stable:
+The core lifecycle is complete:
 
-* ingestion
-* storage
+* add (BibTeX / manual / interactive)
+* edit (overwrite with confirmation)
+* remove (project-safe)
 * project scoping
-* BibTeX emission
+* deterministic BibTeX emission
 
 The on-disk schema may evolve before v1.0.0, but no accidental breakage is expected.
 
@@ -239,11 +293,12 @@ The on-disk schema may evolve before v1.0.0, but no accidental breakage is expec
 
 Planned improvements include:
 
-* Optional `--stdout` / `-o` flags for `printed`
-* Reference inspection commands (`eln show <id>`)
-* Linting / validation (`eln check`)
+* `eln edit <ref-id>` (interactive editing)
+* `eln ls` (list refs in active project)
+* `eln find <query>`
+* Validation / linting (`eln check`)
+* Optional editor integration (`$EDITOR`)
 * Schema versioning and migrations
-* Optional integration helpers (Overleaf, CI)
 
 ---
 
