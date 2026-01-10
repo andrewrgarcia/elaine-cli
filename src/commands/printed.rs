@@ -15,6 +15,7 @@ struct ElaineIndex {
 /// Structure of `.elaine/projects/<project>.yaml`
 #[derive(Debug, Deserialize)]
 struct ProjectFile {
+    #[allow(dead_code)]
     id: String,
     #[allow(dead_code)]
     title: Option<String>,
@@ -22,8 +23,9 @@ struct ProjectFile {
 }
 
 
+
 /// Entry point for `eln printed`
-pub fn run_printed() {
+pub fn run_printed(all: bool, projects: Vec<String>) {
     let elaine_dir = Path::new(".elaine");
 
     // --- Sanity checks ------------------------------------------------------
@@ -66,54 +68,158 @@ pub fn run_printed() {
         }
     };
 
-    // --- Load active project -----------------------------------------------
+    let project_ids = match resolve_project_ids(
+        elaine_dir,
+        all,
+        projects,
+        &index,
+    ) {
+        Some(v) => v,
+        None => return,
+    };
 
-    let project_path = elaine_dir
-        .join("projects")
-        .join(format!("{}.yaml", index.active_project));
 
-    let project_str = match fs::read_to_string(&project_path) {
-        Ok(s) => s,
-        Err(_) => {
+    let ref_ids = match collect_reference_ids(
+        elaine_dir,
+        &project_ids,
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+
+
+    let mut refs = match load_references(
+        elaine_dir,
+        &ref_ids,
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+
+
+    // --- Deterministic ordering ---------------------------------------------
+    sort_references(&mut refs);
+
+    render_and_write_bibtex(&refs, &project_ids, all);
+}
+
+
+fn resolve_project_ids(
+    elaine_dir: &Path,
+    all: bool,
+    projects: Vec<String>,
+    index: &ElaineIndex,
+) -> Option<Vec<String>> {
+    if all {
+        let projects_dir = elaine_dir.join("projects");
+        let mut ids = Vec::new();
+
+        let entries = match fs::read_dir(&projects_dir) {
+            Ok(e) => e,
+            Err(_) => {
+                eprintln!(
+                    "{}",
+                    "❌ Failed to read projects directory"
+                        .red()
+                        .bold()
+                );
+                return None;
+            }
+        };
+
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|s| s.to_str()) == Some("yaml") {
+                if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                    ids.push(stem.to_string());
+                }
+            }
+        }
+
+        if ids.is_empty() {
             eprintln!(
                 "{}",
-                format!(
-                    "❌ Project '{}' not found",
-                    index.active_project
-                )
-                .red()
-                .bold()
+                "⚠️  No projects found."
+                    .yellow()
             );
-            return;
+            return None;
         }
-    };
 
-    let project: ProjectFile = match serde_yaml::from_str(&project_str) {
-        Ok(v) => v,
-        Err(e) => {
-            eprintln!(
-                "{}\n{}",
-                "❌ Failed to parse project file".red().bold(),
-                e.to_string().dimmed()
-            );
-            return;
+        ids.sort();
+        Some(ids)
+    } else if projects.is_empty() {
+        Some(vec![index.active_project.clone()])
+    } else {
+        Some(projects)
+    }
+}
+
+
+fn collect_reference_ids(
+    elaine_dir: &Path,
+    project_ids: &[String],
+) -> Option<std::collections::HashSet<String>> {
+    use std::collections::HashSet;
+
+    let mut ref_ids: HashSet<String> = HashSet::new();
+
+    for pid in project_ids {
+        let project_path = elaine_dir
+            .join("projects")
+            .join(format!("{}.yaml", pid));
+
+        let project_str = match fs::read_to_string(&project_path) {
+            Ok(s) => s,
+            Err(_) => {
+                eprintln!(
+                    "{}",
+                    format!("❌ Project '{}' not found", pid)
+                        .red()
+                        .bold()
+                );
+                return None;
+            }
+        };
+
+        let project: ProjectFile = match serde_yaml::from_str(&project_str) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!(
+                    "{}\n{}",
+                    "❌ Failed to parse project file".red().bold(),
+                    e.to_string().dimmed()
+                );
+                return None;
+            }
+        };
+
+        for rid in project.refs {
+            ref_ids.insert(rid);
         }
-    };
-
-    if project.refs.is_empty() {
-        eprintln!(
-            "{}",
-            "⚠️  Project has no references to print."
-                .yellow()
-        );
-        return;
     }
 
-    // --- Load references ----------------------------------------------------
+    if ref_ids.is_empty() {
+        eprintln!(
+            "{}",
+            "⚠️  No references found in selected project(s)."
+                .yellow()
+        );
+        return None;
+    }
 
+    Some(ref_ids)
+}
+
+
+
+
+fn load_references(
+    elaine_dir: &Path,
+    ref_ids: &std::collections::HashSet<String>,
+) -> Option<Vec<Reference>> {
     let mut refs: Vec<Reference> = Vec::new();
 
-    for rid in &project.refs {
+    for rid in ref_ids {
         let ref_path = elaine_dir
             .join("refs")
             .join(format!("{}.yaml", rid));
@@ -146,31 +252,50 @@ pub fn run_printed() {
     if refs.is_empty() {
         eprintln!(
             "{}",
-            "❌ No valid references loaded.".red().bold()
+            "❌ No valid references loaded."
+                .red()
+                .bold()
         );
-        return;
+        return None;
     }
 
-    // --- Deterministic ordering ---------------------------------------------
+    Some(refs)
+}
 
-    sort_references(&mut refs);
 
-    // --- Render + print ------------------------------------------------------
+fn render_and_write_bibtex(
+    refs: &[Reference],
+    project_ids: &[String],
+    all: bool,
+) {
+    // --- Render to stdout --------------------------------------------------
 
-    for r in &refs {
+    for r in refs {
         print!("{}", render_bibtex(r));
         println!();
     }
 
-    let out_name = format!("{}_references.bib", project.id);
-    let mut out = String::new();
+    // --- Determine output filename ----------------------------------------
 
-    for r in &refs {
+    let out_name = if all {
+        "global_references.bib".to_string()
+    } else {
+        format!(
+            "{}_references.bib",
+            project_ids.join("+")
+        )
+    };
+
+    // --- Render to file ----------------------------------------------------
+
+    let mut out = String::new();
+    for r in refs {
         out.push_str(&render_bibtex(r));
         out.push('\n');
     }
 
-    fs::write(&out_name, out).expect("Failed writing BibTeX file");
+    fs::write(&out_name, out)
+        .expect("Failed writing BibTeX file");
 
     println!(
         "{}",
@@ -182,8 +307,6 @@ pub fn run_printed() {
         .green()
         .bold()
     );
-
-
 }
 
 

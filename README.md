@@ -77,7 +77,8 @@ Projects are named collections of references:
 
 ````
 
-A reference can belong to **multiple projects** without duplication.
+A reference can belong to **multiple projects** without duplication,
+and can be emitted once when compiling a multi-project or global bibliography.
 
 ---
 
@@ -223,23 +224,54 @@ the reference file as well.
 
 ### Print bibliography
 
+#### 1. Active project
+
 ```bash
 eln printed
 ```
 
-Generates a deterministic BibTeX file:
+Generates a deterministic BibTeX file for the active project:
 
 ```
 <project>_references.bib
 ```
 
-And prints the same content to the CLI.
+The same content is also printed to stdout.
 
-Example:
+---
+
+#### 2. Multiple projects (set union)
+
+```bash
+eln printed projectA projectB
+```
+
+Generates a single BibTeX file containing the **union** of references
+across the specified projects:
 
 ```
-🖨️  Printed 14 references → crystal_growth_review_references.bib
+projectA+projectB_references.bib
 ```
+
+If the same reference appears in multiple projects, it is emitted **once**.
+
+---
+
+#### 3. Global bibliography
+
+```bash
+eln printed --all
+```
+
+Generates a global bibliography containing **all references across all projects**:
+
+```
+global_references.bib
+```
+
+This file is always named explicitly to avoid overwriting curated
+project-level bibliographies.
+
 
 ---
 
@@ -256,6 +288,12 @@ eln add -i
 eln status
 eln printed
 
+# Multi-project bibliography
+eln printed crystal_growth_review background
+
+# Global bibliography (all projects)
+eln printed --all
+
 \\bibliography{crystal_growth_review_references}
 ```
 
@@ -270,6 +308,7 @@ Elaine is built around a few non-negotiables:
 * **Opinionated parsing** — explicit rules, no silent failure
 * **Minimal surface area** — fewer commands, fewer flags
 * **Researcher-friendly** — works with Git, LaTeX, and editors
+* **Explicit scope** — global and multi-project actions are always opt-in
 
 ---
 

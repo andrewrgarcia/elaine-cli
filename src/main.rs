@@ -26,7 +26,7 @@ enum Commands {
     /// Initialize a new Elaine registry (.elaine/)
     Init,
 
-    /// Add references (paste BibTeX via stdin)
+    /// Add references (BibTeX / manual / interactive)
     Add {
         /// Interactive mode
         #[arg(short = 'i', long = "interactive")]
@@ -52,15 +52,20 @@ enum Commands {
         verbose: bool,
     },
 
-
-    /// Select active project
+    /// Select or list projects
     Pro {
         project_id: Option<String>,
     },
 
+    /// Print BibTeX for one or more projects (union)
+    Printed {
+        /// Print references from all projects
+        #[arg(long = "all")]
+        all: bool,
 
-    /// Print BibTeX for active project
-    Printed,
+        /// Project IDs to include (defaults to active project)
+        projects: Vec<String>,
+    },
 }
 
 fn main() {
@@ -68,11 +73,15 @@ fn main() {
 
     match cli.command {
         Commands::Init => commands::init::run_init(),
-        Commands::Add { interactive, args } => commands::add::run_add(interactive, args),
+        Commands::Add { interactive, args } => {
+            commands::add::run_add(interactive, args)
+        }
         Commands::Edit { ref_id } => commands::edit::run_edit(ref_id),
         Commands::Rm { ref_id } => commands::rm::run_rm(ref_id),
         Commands::Status { verbose } => commands::status::run_status(verbose),
         Commands::Pro { project_id } => commands::pro::run_pro(project_id),
-        Commands::Printed => commands::printed::run_printed(),
+        Commands::Printed { all, projects } => {
+            commands::printed::run_printed(all, projects)
+        }
     }
 }
