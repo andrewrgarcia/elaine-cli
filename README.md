@@ -58,9 +58,7 @@ Elaine takes a different approach:
 Each reference is stored as a single YAML file:
 
 ```
-
 .elaine/refs/<reference-id>.yaml
-
 ```
 
 This makes references:
@@ -76,10 +74,8 @@ This makes references:
 Projects are named collections of references:
 
 ```
-
 .elaine/projects/<project>.yaml
-
-````
+```
 
 A reference can belong to **multiple projects** without duplication,
 and can be emitted once when compiling a multi-project or global bibliography.
@@ -105,7 +101,7 @@ If parsing fails, Elaine tells you exactly why.
 
 ```bash
 cargo install elaine-cli
-````
+```
 
 ### From source
 
@@ -213,6 +209,43 @@ Verbose mode: includes reference IDs per project.
 
 ---
 
+### Orphaned references
+
+A reference is considered **orphaned** if it exists in Elaine’s registry
+but is not currently pinned to any project.
+
+This can happen intentionally (e.g. when reorganizing projects) or
+temporarily.
+
+Orphaned references:
+
+- are never deleted automatically
+- remain editable and reusable
+- are surfaced explicitly in `eln status`
+
+```bash
+eln status
+```
+
+Example:
+
+```text
+Elaine Status
+─────────────
+  thesis   (12 refs)
+  survey   (8 refs)
+
+Orphaned references (1)
+```
+
+To see the orphaned reference IDs:
+
+```bash
+eln status -v
+```
+
+--- 
+
 ### Remove references
 
 ```bash
@@ -225,6 +258,50 @@ If the reference is unused globally, Elaine will ask whether to delete
 the reference file as well.
 
 ---
+
+### Pin and unpin references
+
+Elaine treats references as independent objects that can be **pinned** to one or more projects.
+
+Pinning does not duplicate references — it simply adds the reference ID
+to a project’s reference set.
+
+#### Pin a reference
+
+```bash
+eln pin <ref-id>
+```
+
+Pins an existing reference to the active project.
+
+```bash
+eln pin <ref-id> <project>
+```
+
+Pins the reference to a specific project.
+
+If the reference is already pinned, Elaine will report it and do nothing.
+
+---
+
+#### Unpin a reference
+
+```bash
+eln unpin <ref-id>
+```
+
+Unpins the reference from the active project.
+
+```bash
+eln unpin <ref-id> <project>
+```
+
+Unpins the reference from a specific project.
+
+If a reference is unpinned from its **last project**, it becomes **orphaned**
+but is **not deleted**.
+
+--- 
 
 ### Print bibliography
 
@@ -313,22 +390,8 @@ Elaine is built around a few non-negotiables:
 * **Minimal surface area** — fewer commands, fewer flags
 * **Researcher-friendly** — works with Git, LaTeX, and editors
 * **Explicit scope** — global and multi-project actions are always opt-in
+* **No hidden state** — orphaned references are surfaced explicitly
 
----
-
-## Status
-
-Elaine is currently **v0.2.0**.
-
-The core lifecycle is complete:
-
-* add (BibTeX / manual / interactive)
-* edit (overwrite with confirmation)
-* remove (project-safe)
-* project scoping
-* deterministic BibTeX emission
-
-The on-disk schema may evolve before v1.0.0, but no accidental breakage is expected.
 
 ---
 
@@ -336,6 +399,7 @@ The on-disk schema may evolve before v1.0.0, but no accidental breakage is expec
 
 Planned improvements include:
 
+* Short reference / project selectors (prefix- or hash-based)
 * `eln edit <ref-id>` (interactive editing)
 * `eln ls` (list refs in active project)
 * `eln find <query>`
