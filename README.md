@@ -18,7 +18,9 @@
   Add references fast. Organize by project. Print clean, deterministic BibTeX.
 </p>
 
-<img width="1941" height="1088" alt="elaine_demo" src="https://github.com/user-attachments/assets/af9c5ac1-ca70-4615-8af9-52a8acff9f2d" />
+<p align="center">
+  <img width="700" alt="elaine_demo" src="https://github.com/user-attachments/assets/af9c5ac1-ca70-4615-8af9-52a8acff9f2d" />
+</p>
 
 ---
 
