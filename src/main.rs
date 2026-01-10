@@ -28,10 +28,8 @@ enum Commands {
 
     /// Add references (BibTeX / manual / interactive)
     Add {
-        /// Interactive mode
         #[arg(short = 'i', long = "interactive")]
         interactive: bool,
-
         #[arg(trailing_var_arg = true)]
         args: Vec<String>,
     },
@@ -46,7 +44,18 @@ enum Commands {
         ref_id: String,
     },
 
-    /// Show current Elaine status
+    /// Pin an existing reference to a project
+    Pin {
+        ref_id: String,
+        project: Option<String>,
+    },
+
+    /// Unpin a reference from a project
+    Unpin {
+        ref_id: String,
+        project: Option<String>,
+    },
+
     Status {
         #[arg(short = 'v', long = "verbose")]
         verbose: bool,
@@ -59,11 +68,9 @@ enum Commands {
 
     /// Print BibTeX for one or more projects (union)
     Printed {
-        /// Print references from all projects
         #[arg(long = "all")]
         all: bool,
 
-        /// Project IDs to include (defaults to active project)
         projects: Vec<String>,
     },
 }
@@ -73,13 +80,22 @@ fn main() {
 
     match cli.command {
         Commands::Init => commands::init::run_init(),
-        Commands::Add { interactive, args } => {
-            commands::add::run_add(interactive, args)
-        }
+        Commands::Add { interactive, args } => commands::add::run_add(interactive, args),
         Commands::Edit { ref_id } => commands::edit::run_edit(ref_id),
         Commands::Rm { ref_id } => commands::rm::run_rm(ref_id),
-        Commands::Status { verbose } => commands::status::run_status(verbose),
-        Commands::Pro { project_id } => commands::pro::run_pro(project_id),
+
+        Commands::Pin { ref_id, project } =>
+            commands::pin::run_pin(ref_id, project),
+
+        Commands::Unpin { ref_id, project } =>
+            commands::unpin::run_unpin(ref_id, project),
+
+        Commands::Status { verbose } =>
+            commands::status::run_status(verbose),
+
+        Commands::Pro { project_id } =>
+            commands::pro::run_pro(project_id),
+
         Commands::Printed { all, projects } => {
             commands::printed::run_printed(all, projects)
         }

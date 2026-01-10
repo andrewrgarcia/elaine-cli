@@ -25,7 +25,42 @@ pub fn run_status(verbose: bool) {
         }
     }
 
+    // --- Load all reference IDs -----------------------------------------------
+
+    let refs_dir = elaine_dir().join("refs");
+    let mut all_refs: Vec<String> = Vec::new();
+
+    if let Ok(entries) = fs::read_dir(&refs_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|s| s.to_str()) == Some("yaml") {
+                if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                    all_refs.push(stem.to_string());
+                }
+            }
+        }
+    }
+
+    all_refs.sort();
+
+
     projects.sort_by(|a, b| a.id.cmp(&b.id));
+
+    use std::collections::HashSet;
+
+    let mut pinned_refs: HashSet<String> = HashSet::new();
+
+    for p in &projects {
+        for rid in &p.refs {
+            pinned_refs.insert(rid.clone());
+        }
+    }
+
+    let orphan_refs: Vec<String> = all_refs
+    .into_iter()
+    .filter(|rid| !pinned_refs.contains(rid))
+    .collect();
+
 
     println!("{}", "Elaine Status".bold());
     println!("{}", "─────────────".dimmed());
@@ -58,4 +93,23 @@ pub fn run_status(verbose: bool) {
             }
         }
     }
+
+    // --- Orphaned references --------------------------------------------------
+
+    if !orphan_refs.is_empty() {
+        println!();
+        println!(
+            "{} ({})",
+            "Orphaned references",
+            orphan_refs.len()
+        );
+
+        if verbose {
+            for rid in orphan_refs {
+                println!("  {}", rid.dimmed());
+            }
+        }
+    }
+
+
 }

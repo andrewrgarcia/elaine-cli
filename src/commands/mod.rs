@@ -5,3 +5,5 @@ pub mod printed;
 pub mod add;
 pub mod edit;
 pub mod rm;
+pub mod pin;
+pub mod unpin;
