@@ -81,21 +81,29 @@ enum Commands {
     },
 
     Status {
-        #[arg(short = 'v', long = "verbose")]
-        verbose: bool,
+        #[arg(short = 'v', action = clap::ArgAction::Count)]
+        verbose: u8,
+
+        #[arg(long = "sort", value_parser = ["id", "title", "author", "year"])]
+        sort: Option<String>,
     },
+
 
     Search {
         ref_selector: String,
     },
 
 
-    /// Select or list projects
-    Pro {
+    /// Select or list libraries
+    #[command(alias = "pro")]
+    Lib {
         #[arg(long = "delete")]
         delete: bool,
 
-        project_id: Option<String>,
+        #[arg(long = "rename")]
+        rename: bool,
+
+        library_id: Option<String>,
     },
 
     /// Print BibTeX for one or more projects (union)
@@ -132,14 +140,14 @@ fn main() {
         Commands::Unpin { ref_id, project } =>
             commands::unpin::run_unpin(ref_id, project),
 
-        Commands::Status { verbose } =>
-            commands::status::run_status(verbose),
+        Commands::Status { verbose, sort } =>
+            commands::status::run_status(verbose, sort),
 
         Commands::Search { ref_selector } =>
             commands::search::run_search(ref_selector),
 
-        Commands::Pro { project_id, delete } =>
-            commands::pro::run_pro(project_id, delete),
+        Commands::Lib { library_id, delete, rename } =>
+            commands::pro::run_pro(library_id, delete, rename),
 
 
         Commands::Printed { all, projects } => {
