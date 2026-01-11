@@ -8,6 +8,7 @@ mod reference;
 mod reference_store;
 mod bibtex;
 mod utils;
+mod search;
 
 #[derive(Parser)]
 #[command(
@@ -61,6 +62,11 @@ enum Commands {
         verbose: bool,
     },
 
+    Search {
+        ref_selector: String,
+    },
+
+
     /// Select or list projects
     Pro {
         #[arg(long = "delete")]
@@ -95,6 +101,9 @@ fn main() {
 
         Commands::Status { verbose } =>
             commands::status::run_status(verbose),
+
+        Commands::Search { ref_selector } =>
+            commands::search::run_search(ref_selector),
 
         Commands::Pro { project_id, delete } =>
             commands::pro::run_pro(project_id, delete),

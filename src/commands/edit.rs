@@ -1,22 +1,38 @@
 use colored::*;
 use std::io::{stdin, stdout, Write};
 
-use crate::reference::Reference;
 use crate::reference_store::{load_ref, save_ref};
 use crate::utils::id::make_ref_id;
+use crate::utils::resolve::{resolve_reference, print_resolve_error};
 use crate::state::load_index;
 use crate::project_store::{load_project, save_project};
 
-pub fn run_edit(ref_id: String) {
-    let mut reference = match try_load(&ref_id) {
+pub fn run_edit(selector: String) {
+    // --- Resolve reference selector (SID / prefix / ID) ------------------
+    let ref_id = match resolve_reference(&selector) {
+        Ok(id) => id,
+        Err(e) => {
+            print_resolve_error(e);
+            return;
+        }
+    };
+
+    let mut reference = match load_ref(&ref_id) {
         Some(r) => r,
-        None => return,
+        None => {
+            eprintln!(
+                "{}",
+                format!("❌ Reference '{}' not found", ref_id).red().bold()
+            );
+            return;
+        }
     };
 
     println!(
-        "{} {}",
+        "{} {} {}",
         "✏️  Editing reference".bold(),
-        ref_id.bright_green()
+        reference.id.bright_green(),
+        format!("({})", &reference.sid[..8]).dimmed() // 👌 opinionated UX restored
     );
 
     // ---- Core fields ---------------------------------------------------
@@ -90,19 +106,6 @@ pub fn run_edit(ref_id: String) {
             .bright_green()
             .bold()
     );
-}
-
-fn try_load(ref_id: &str) -> Option<Reference> {
-    match load_ref(ref_id) {
-        Some(r) => Some(r),
-        None => {
-            eprintln!(
-                "{}",
-                format!("❌ Reference '{}' not found", ref_id).red()
-            );
-            None
-        }
-    }
 }
 
 
