@@ -10,12 +10,12 @@
   <a href="https://crates.io/crates/elaine-cli"><img src="https://img.shields.io/crates/v/elaine-cli.svg" /></a>
   <a href="https://github.com/andrewrgarcia/elaine-cli"><img src="https://img.shields.io/github/stars/andrewrgarcia/elaine-cli" /></a>
   <a href="#"><img src="https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-blue" /></a>
-  <a href="#"><img src="https://img.shields.io/badge/status-v0.4.0-green" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/status-v0.5.0-green" /></a>
 </p>
 
 <p align="center">
   <strong>An opinionated, local-first, CLI reference manager for LaTeX / BibTeX users.</strong><br/>
-  Deterministic metadata. Explicit projects. Optional document attachments.
+  Deterministic metadata. Explicit libraries. Local documents, on your terms.
 </p>
 
 <p align="center">
@@ -50,7 +50,7 @@ Most reference managers:
 Elaine takes a different approach:
 
 - References are **atomic YAML files**
-- Projects are **explicit collections**
+- Libraries are **explicit collections**
 - BibTeX output is **deterministic**
 - Everything is **local, transparent, and versionable**
 
@@ -71,7 +71,7 @@ References are:
 * atomic
 * editable
 * diffable
-* reusable across projects
+* reusable across libraries
 
 Each reference has:
 
@@ -80,23 +80,23 @@ Each reference has:
 
 ---
 
-### Projects
+### Libraries
 
-Projects are explicit collections of references:
+Libraries are explicit collections of references:
 
 ```
-.elaine/projects/<project>.yaml
+.elaine/libraries/<library>.yaml
 ```
 
-A reference can belong to **multiple projects** without duplication.
+A reference can belong to **multiple libraries** without duplication.
 
-Projects also have opaque SIDs.
+Libraries also have opaque SIDs.
 
 ---
 
 ### Selectors (IDs & SIDs)
 
-Anywhere Elaine expects a reference or project, you may use:
+Anywhere Elaine expects a reference or library, you may use:
 
 * full ID
 * full SID
@@ -108,7 +108,9 @@ Examples:
 eln edit rush1988
 eln open 55b3ed28
 eln pin 9c2128b9 crystal
-eln pro --delete d084
+eln lib ef67
+eln lib crystal
+eln lib --delete d084
 ```
 
 Ambiguous prefixes are rejected explicitly.
@@ -175,9 +177,9 @@ cargo install --path . --force
 
 ```
 .elaine/
- ├── index.yaml              # active project pointer
- ├── projects/
- │    └── <project>.yaml
+ ├── index.yaml              # active library pointer
+ ├── libraries/
+ │    └── <library>.yaml
  └── refs/
       └── <ref-id>.yaml
 ```
@@ -230,38 +232,82 @@ Interactive editing with safe ID reconciliation.
 
 ---
 
-### Projects
+### Libraries
 
 ```bash
-eln pro <project>
-eln pro
-eln pro --delete <project-selector>
+eln lib <library>
+eln lib
+eln lib --delete <library-selector>
 ```
 
-Deleting a project **never deletes references**.
+Deleting a library **never deletes references**.
+
+### Rename libraries
+
+Libraries can be renamed safely without losing references:
+
+```bash
+eln lib --rename new_name
+```
+
+Renaming:
+
+* updates the library file
+* preserves the opaque SID
+* keeps all references intact
+* updates the active library pointer automatically
 
 ---
+
 
 ### Status
 
 ```bash
 eln status
 eln status -v
+eln status -vv
+eln status --sort year
 ```
 
-Verbose mode shows:
+Status provides a hierarchical view of all libraries and their references.
 
-* reference IDs
-* short SIDs
-* attachment indicators
+Verbosity levels:
+
+* `eln status`
+
+  * libraries, reference counts, active marker
+
+* `eln status -v`
+
+  * reference IDs
+  * short SIDs
+  * attachment indicators (`📄`)
+
+* `eln status -vv`
+
+  * title
+  * first author
+  * year
+  * attachments
+
+Sorting:
+
+```bash
+eln status --sort id
+eln status --sort title
+eln status --sort author
+eln status --sort year
+```
+
+Sorting affects **reference order within each library**.
 
 ---
 
 ### Pin / unpin
 
 ```bash
-eln pin <ref> [project]
-eln unpin <ref> [project]
+eln pin <ref> [library]
+eln unpin <ref> [library]
 ```
 
 Unpinned references become **orphaned**, never auto-deleted.
@@ -297,36 +343,36 @@ Results are **links**, not imports.
 
 ### Print bibliography
 
-#### 1. Active project
+#### 1. Active library
 
 ```bash
 eln printed
 ```
 
-Generates a deterministic BibTeX file for the active project:
+Generates a deterministic BibTeX file for the active library:
 
 ```
-<project>_references.bib
+<library>_references.bib
 ```
 
 The same content is also printed to stdout.
 
 ---
 
-#### 2. Multiple projects (set union)
+#### 2. Multiple libraries (set union)
 
 ```bash
-eln printed projectA projectB
+eln printed libraryA libraryB
 ```
 
 Generates a single BibTeX file containing the **union** of references
-across the specified projects:
+across the specified libraries:
 
 ```
-projectA+projectB_references.bib
+libraryA+libraryB_references.bib
 ```
 
-If the same reference appears in multiple projects, it is emitted **once**.
+If the same reference appears in multiple libraries, it is emitted **once**.
 
 ---
 
@@ -336,14 +382,14 @@ If the same reference appears in multiple projects, it is emitted **once**.
 eln printed --all
 ```
 
-Generates a global bibliography containing **all references across all projects**:
+Generates a global bibliography containing **all references across all libraries**:
 
 ```
 global_references.bib
 ```
 
 This file is always named explicitly to avoid overwriting curated
-project-level bibliographies.
+library-level bibliographies.
 
 
 ---
@@ -352,7 +398,7 @@ project-level bibliographies.
 
 ```bash
 eln init
-eln pro crystal_growth_review
+eln lib machine_learning
 
 eln add < references.bib
 eln add "No Free Lunch Theorems" "Wolpert, D.H. and Macready, W.G." 1997
@@ -361,13 +407,11 @@ eln add -i
 eln status
 eln printed
 
-# Multi-project bibliography
-eln printed crystal_growth_review background
+# Multi-library bibliography
+eln printed machine_learning background
 
-# Global bibliography (all projects)
+# Global bibliography (all libraries)
 eln printed --all
-
-\\bibliography{crystal_growth_review_references}
 ```
 
 ---
@@ -380,7 +424,7 @@ Elaine is built around a few non-negotiables:
 * **Opinionated parsing** — explicit rules, no silent failure
 * **Minimal surface area** — fewer commands, fewer flags
 * **Researcher-friendly** — works with Git, LaTeX, and editors
-* **Explicit scope** — global and multi-project actions are always opt-in
+* **Explicit scope** — global and multi-library actions are always opt-in
 * **No hidden state** — orphaned references are surfaced explicitly
 
 ---
