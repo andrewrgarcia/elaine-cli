@@ -2,8 +2,7 @@ use colored::*;
 use std::fs;
 
 use crate::state::{elaine_dir, load_index, save_index};
-use crate::project_store::{create_project_if_missing, load_project};
-use crate::utils::id::sid_short;
+use crate::project_store::create_project_if_missing;
 use crate::utils::resolve_project::{resolve_project, print_project_resolve_error};
 
 pub fn run_pro(
@@ -18,7 +17,7 @@ pub fn run_pro(
     match project_id {
         Some(pid) if delete => delete_project(&pid),
         Some(pid) => switch_project(&pid),
-        None => list_projects(),
+        None => show_current_library(),
     }
 }
 
@@ -76,59 +75,69 @@ fn switch_project(project_id: &str) {
     );
 }
 
-fn list_projects() {
-    let projects_dir = elaine_dir().join("projects");
-
+fn show_current_library() {
     let index = load_index();
-    let active = index.active_project;
 
-    let mut projects = Vec::new();
+    match index.active_project {
+        Some(ref pid) => {
+            println!(
+                "You are currently sitting in library {}",
+                pid.bright_green().bold()
+            );
+            println!(
+                "{}",
+                "↳ To switch libraries: eln lib <name>"
+                    .dimmed()
+            );
+        }
+        None => {
+            println!(
+                "{}",
+                "📚 No active library".yellow().bold()
+            );
+            println!(
+                "{}",
+                "↳ To create or switch: eln lib <name>"
+                    .dimmed()
+            );
+        }
+    }
+}
 
-    let entries = match fs::read_dir(&projects_dir) {
-        Ok(e) => e,
-        Err(_) => {
-            eprintln!("{}", "❌ Failed to read projects directory".red());
+fn rename_library(old: &str, new: &str) {
+    let old_id = match resolve_project(old) {
+        Ok(p) => p,
+        Err(e) => {
+            print_project_resolve_error(e);
             return;
         }
     };
 
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.extension().and_then(|s| s.to_str()) != Some("yaml") {
-            continue;
-        }
+    let old_path = crate::project_store::project_path(&old_id);
+    let new_path = crate::project_store::project_path(new);
 
-        let id = match path.file_stem().and_then(|s| s.to_str()) {
-            Some(v) => v.to_string(),
-            None => continue,
-        };
-
-        let project = load_project(&id);
-        projects.push(project);
-    }
-
-    if projects.is_empty() {
-        println!("{}", "No projects found.".yellow());
+    if new_path.exists() {
+        eprintln!(
+            "{}",
+            format!("❌ Library '{}' already exists", new).red()
+        );
         return;
     }
 
-    projects.sort_by(|a, b| a.id.cmp(&b.id));
+    std::fs::rename(&old_path, &new_path)
+        .expect("Failed to rename library file");
 
-    println!("{}", "Projects:".bold());
-
-    for project in projects {
-        let marker = match &active {
-            Some(a) if a == &project.id => "*",
-            _ => " ",
-        };
-
-        println!(
-            "{} {} ({:>2} refs) {}",
-            marker,
-            project.id,
-            project.refs.len(),
-            sid_short(&project.sid).dimmed()
-        );
-
+    // update active pointer if needed
+    let mut index = load_index();
+    if index.active_project.as_deref() == Some(&old_id) {
+        index.active_project = Some(new.to_string());
+        save_index(&index);
     }
+
+    println!(
+        "{}",
+        format!("✔️  Renamed library '{}' → '{}'", old_id, new)
+            .bright_green()
+            .bold()
+    );
 }

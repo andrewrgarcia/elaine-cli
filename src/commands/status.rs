@@ -1,22 +1,49 @@
 use colored::*;
 use std::fs;
+use std::collections::HashSet;
+
 use crate::state::{elaine_dir, load_index};
 use crate::project::Project;
 use crate::reference_store::load_ref;
 use crate::utils::id::sid_short;
 
-pub fn run_status(verbose: bool) {
-    if !elaine_dir().exists() {
-        eprintln!("{}", "❌ Not an Elaine project. Run `eln init` first.".red());
+pub fn run_status(verbose: u8, sort: Option<String>) {
+    guard_initialized();
+
+    let index = load_index();
+
+    let projects = load_projects();
+    let all_refs = load_all_ref_ids();
+
+    let orphan_refs = compute_orphans(&projects, &all_refs);
+
+    print_header();
+
+    if projects.is_empty() {
+        println!("{}", "No libraries found.".yellow());
         return;
     }
 
-    let index = load_index();
+    print_projects(&projects, &index, verbose, sort.as_deref());
+
+    print_orphans(&orphan_refs, verbose, sort.as_deref());
+}
+
+// ======================================================================
+// Helpers
+// ======================================================================
+
+fn guard_initialized() {
+    if !elaine_dir().exists() {
+        eprintln!("{}", "❌ Not an Elaine project. Run `eln init` first.".red());
+        std::process::exit(1);
+    }
+}
+
+fn load_projects() -> Vec<Project> {
     let projects_dir = elaine_dir().join("projects");
+    let mut projects = Vec::new();
 
-    let mut projects: Vec<Project> = Vec::new();
-
-    // Load all projects
     if let Ok(entries) = fs::read_dir(&projects_dir) {
         for entry in entries.flatten() {
             if let Ok(contents) = fs::read_to_string(entry.path()) {
@@ -27,55 +54,59 @@ pub fn run_status(verbose: bool) {
         }
     }
 
-    // --- Load all reference IDs -----------------------------------------------
+    projects.sort_by(|a, b| a.id.cmp(&b.id));
+    projects
+}
 
+fn load_all_ref_ids() -> Vec<String> {
     let refs_dir = elaine_dir().join("refs");
-    let mut all_refs: Vec<String> = Vec::new();
+    let mut refs = Vec::new();
 
     if let Ok(entries) = fs::read_dir(&refs_dir) {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.extension().and_then(|s| s.to_str()) == Some("yaml") {
                 if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                    all_refs.push(stem.to_string());
+                    refs.push(stem.to_string());
                 }
             }
         }
     }
 
-    all_refs.sort();
+    refs.sort();
+    refs
+}
 
+fn compute_orphans(projects: &[Project], all_refs: &[String]) -> Vec<String> {
+    let mut pinned = HashSet::new();
 
-    projects.sort_by(|a, b| a.id.cmp(&b.id));
-
-    use std::collections::HashSet;
-
-    let mut pinned_refs: HashSet<String> = HashSet::new();
-
-    for p in &projects {
+    for p in projects {
         for rid in &p.refs {
-            pinned_refs.insert(rid.clone());
+            pinned.insert(rid.clone());
         }
     }
 
-    let orphan_refs: Vec<String> = all_refs
-    .into_iter()
-    .filter(|rid| !pinned_refs.contains(rid))
-    .collect();
+    all_refs
+        .iter()
+        .filter(|rid| !pinned.contains(*rid))
+        .cloned()
+        .collect()
+}
 
-
+fn print_header() {
     println!("{}", "Elaine Status".bold());
     println!("{}", "─────────────".dimmed());
+}
 
-    if projects.is_empty() {
-        println!("{}", "No projects found.".yellow());
-        return;
-    }
-
+fn print_projects(
+    projects: &[Project],
+    index: &crate::state::Index,
+    verbose: u8,
+    sort: Option<&str>,
+) {
     for p in projects {
         let is_active = index.active_project.as_deref() == Some(&p.id);
         let marker = if is_active { "*" } else { " " };
-
 
         let line = format!(
             "{} {}   ({} refs)   {}",
@@ -91,45 +122,121 @@ pub fn run_status(verbose: bool) {
             println!("{}", line);
         }
 
-        if verbose {
-            for rid in &p.refs {
-                print_ref_verbose(rid, "    ");
-            }
-        }
-    }
+        if verbose >= 1 {
+            let mut refs = p.refs.clone();
+            sort_refs(&mut refs, sort);
 
-    // --- Orphaned references --------------------------------------------------
-
-    if !orphan_refs.is_empty() {
-        println!();
-        println!(
-            "{} ({})",
-            "Orphaned references",
-            orphan_refs.len()
-        );
-
-        if verbose {
-            for rid in orphan_refs {
-                print_ref_verbose(&rid, "  ");
+            for rid in &refs {
+                print_ref(rid, "    ", verbose);
             }
         }
     }
 }
 
+fn print_orphans(
+    orphan_refs: &[String],
+    verbose: u8,
+    sort: Option<&str>,
+) {
+    if orphan_refs.is_empty() {
+        return;
+    }
 
-fn print_ref_verbose(rid: &str, indent: &str) {
+    println!();
+    println!(
+        "{} ({})",
+        "Orphaned references".bold(),
+        orphan_refs.len()
+    );
+
+    if verbose >= 1 {
+        let mut refs = orphan_refs.to_vec();
+        sort_refs(&mut refs, sort);
+
+        for rid in &refs {
+            print_ref(rid, "  ", verbose);
+        }
+    }
+}
+
+
+fn sort_refs(refs: &mut Vec<String>, sort: Option<&str>) {
+    match sort {
+        None | Some("id") => {
+            refs.sort();
+        }
+        Some("title") => {
+            refs.sort_by(|a, b| {
+                let ra = load_ref(a);
+                let rb = load_ref(b);
+                ra.and_then(|r| Some(r.title))
+                    .cmp(&rb.and_then(|r| Some(r.title)))
+            });
+        }
+        Some("author") => {
+            refs.sort_by(|a, b| {
+                let ra = load_ref(a);
+                let rb = load_ref(b);
+                let aa = ra.and_then(|r| r.authors.get(0).cloned()).unwrap_or_default();
+                let ab = rb.and_then(|r| r.authors.get(0).cloned()).unwrap_or_default();
+                aa.cmp(&ab)
+            });
+        }
+        Some("year") => {
+            refs.sort_by(|a, b| {
+                let ra = load_ref(a);
+                let rb = load_ref(b);
+                let ya = ra.and_then(|r| r.year).unwrap_or(0);
+                let yb = rb.and_then(|r| r.year).unwrap_or(0);
+                ya.cmp(&yb)
+            });
+        }
+        _ => {}
+    }
+}
+
+
+// ======================================================================
+// Reference renderers
+// ======================================================================
+
+fn print_ref(rid: &str, indent: &str, verbose: u8) {
     if let Some(r) = load_ref(rid) {
-        let sid_short = sid_short(&r.sid);
+        let sid = sid_short(&r.sid);
         let doc = if !r.attachments.is_empty() { " 📄" } else { "" };
 
-        println!(
-            "{}{}   {}{}",
-            indent,
-            r.id,
-            sid_short.dimmed(),
-            doc
-        );
+        match verbose {
+            1 => {
+                // identity-only
+                println!(
+                    "{}{}   {}{}",
+                    indent,
+                    r.id,
+                    sid.dimmed(),
+                    doc
+                );
+            }
+            _ => {
+                // identity + semantic fused
+                let author = r.authors.get(0).map(String::as_str).unwrap_or("Unknown");
+                let year = r.year
+                    .map(|y| y.to_string())
+                    .unwrap_or_else(|| "n.d.".into());
 
+                println!(
+                    "{}{}   {}  {} ({}, {}){}",
+                    indent,
+                    r.id,
+                    sid.dimmed(),
+                    r.title,
+                    author,
+                    year,
+                    doc
+                );
+            }
+        }
+
+        // --- Attachments (always shown in -v / -vv) ---------------------
         for a in &r.attachments {
             println!(
                 "{}  ↳ {}",
