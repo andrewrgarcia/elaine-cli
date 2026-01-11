@@ -1,11 +1,13 @@
 use colored::*;
+use std::fs;
+use std::path::Path;
 use std::io::{stdin, stdout, Write};
 
 use crate::reference_store::{load_ref, save_ref};
 use crate::utils::id::make_ref_id;
 use crate::utils::resolve::{resolve_reference, print_resolve_error};
-use crate::state::load_index;
-use crate::project_store::{load_project, save_project};
+use crate::project::Project;
+use crate::state::elaine_dir;
 
 pub fn run_edit(selector: String) {
     // --- Resolve reference selector (SID / prefix / ID) ------------------
@@ -199,21 +201,64 @@ fn confirm(msg: &str) -> bool {
     v.is_empty() || v == "y" || v == "yes"
 }
 
-fn rename_reference(old_id: &str, new_id: &str) {
+
+
+pub fn rename_reference(old_id: &str, new_id: &str) {
+    rename_reference_file(old_id, new_id);
+    update_all_libraries(old_id, new_id);
+}
+
+fn rename_reference_file(old_id: &str, new_id: &str) {
     let old_path = crate::reference_store::ref_path(old_id);
     let new_path = crate::reference_store::ref_path(new_id);
 
-    std::fs::rename(&old_path, &new_path)
-        .expect("Failed to rename reference file");
+    fs::rename(&old_path, &new_path)
+        .expect("❌ Failed to rename reference file");
+}
 
-    let index = load_index();
-    if let Some(pid) = index.active_project {
-        let mut project = load_project(&pid);
-        for r in project.refs.iter_mut() {
-            if r == old_id {
-                *r = new_id.to_string();
+fn update_all_libraries(old_id: &str, new_id: &str) {
+    let projects_dir = elaine_dir().join("projects");
+
+    if let Ok(entries) = fs::read_dir(&projects_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+
+            if !is_project_file(&path) {
+                continue;
             }
+
+            update_library_refs(&path, old_id, new_id);
         }
-        save_project(&project);
     }
+}
+
+fn update_library_refs(path: &Path, old_id: &str, new_id: &str) {
+    let contents = fs::read_to_string(path)
+        .expect("❌ Failed to read library file");
+
+    let mut project: Project =
+        serde_yaml::from_str(&contents)
+            .expect("❌ Failed to parse library YAML");
+
+    let mut changed = false;
+
+    for rid in project.refs.iter_mut() {
+        if rid == old_id {
+            *rid = new_id.to_string();
+            changed = true;
+        }
+    }
+
+    if changed {
+        let new_contents =
+            serde_yaml::to_string(&project)
+                .expect("❌ Failed to serialize updated library");
+
+        fs::write(path, new_contents)
+            .expect("❌ Failed to write updated library file");
+    }
+}
+
+fn is_project_file(path: &Path) -> bool {
+    path.extension().and_then(|s| s.to_str()) == Some("yaml")
 }
