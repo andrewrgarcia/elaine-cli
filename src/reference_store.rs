@@ -1,9 +1,10 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use colored::*;
-use crate::reference::Reference;
 use std::io::{self, Write};
 
+use crate::reference::Reference;
+use crate::utils::id::make_sid;
 
 pub fn refs_dir() -> PathBuf {
     Path::new(".elaine").join("refs")
@@ -13,33 +14,28 @@ pub fn ref_path(ref_id: &str) -> PathBuf {
     refs_dir().join(format!("{}.yaml", ref_id))
 }
 
-#[allow(dead_code)]
-pub fn ref_exists(ref_id: &str) -> bool {
-    ref_path(ref_id).exists()
-}
-
-#[allow(dead_code)]
-pub fn load_ref(ref_id: &str) -> Reference {
+pub fn load_ref(ref_id: &str) -> Option<Reference> {
     let path = ref_path(ref_id);
+    let contents = fs::read_to_string(&path).ok()?;
+    let mut r: Reference = serde_yaml::from_str(&contents).ok()?;
 
-    let contents = fs::read_to_string(&path)
-        .unwrap_or_else(|_| panic!("❌ Failed to read reference {}", ref_id));
+    // --- Lazy SID migration ---------------------------------------------
+    if r.sid.len() < 16 {
+        r.sid = make_sid();
+        save_ref(&r);
+    }
 
-    serde_yaml::from_str(&contents)
-        .unwrap_or_else(|_| panic!("❌ Failed to parse reference {}", ref_id))
+    Some(r)
 }
 
 pub fn save_ref(reference: &Reference) {
     let path = ref_path(&reference.id);
-
     let contents = serde_yaml::to_string(reference)
         .expect("❌ Failed to serialize reference");
 
     fs::write(&path, contents)
         .expect("❌ Failed to write reference file");
 }
-
-
 
 pub fn create_or_update_ref(reference: Reference) {
     let path = ref_path(&reference.id);
@@ -66,7 +62,6 @@ pub fn create_or_update_ref(reference: Reference) {
             return;
         }
 
-        // default: yes
         save_ref(&reference);
         println!(
             "{}",
@@ -85,3 +80,28 @@ pub fn create_or_update_ref(reference: Reference) {
     }
 }
 
+pub fn load_all_refs() -> Vec<Reference> {
+    let mut refs = Vec::new();
+
+    if let Ok(entries) = fs::read_dir(refs_dir()) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|s| s.to_str()) != Some("yaml") {
+                continue;
+            }
+
+            if let Ok(contents) = fs::read_to_string(&path) {
+                if let Ok(mut r) = serde_yaml::from_str::<Reference>(&contents) {
+                    // migrate here too
+                    if r.sid.len() < 16 {
+                        r.sid = make_sid();
+                        let _ = fs::write(&path, serde_yaml::to_string(&r).unwrap());
+                    }
+                    refs.push(r);
+                }
+            }
+        }
+    }
+
+    refs
+}

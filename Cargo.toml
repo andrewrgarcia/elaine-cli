@@ -1,6 +1,6 @@
 [package]
 name = "elaine-cli"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2024"
 authors = ["Andrew Garcia"]
 description = "An opinionated, local-first CLI reference manager for BibTeX and LaTeX users."
@@ -19,6 +19,7 @@ path = "src/main.rs"
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
+uuid = { version = "1", features = ["v4"] }
 serde_yaml = "0.9"
 colored = "2.1"
 regex = "1.10"

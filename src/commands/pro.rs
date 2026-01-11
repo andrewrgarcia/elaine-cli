@@ -3,18 +3,63 @@ use std::fs;
 
 use crate::state::{elaine_dir, load_index, save_index};
 use crate::project_store::{create_project_if_missing, load_project};
+use crate::utils::id::sid_short;
+use crate::utils::resolve_project::{resolve_project, print_project_resolve_error};
 
-pub fn run_pro(project_id: Option<String>) {
+pub fn run_pro(
+    project_id: Option<String>,
+    delete: bool,
+) {
     if !elaine_dir().exists() {
         eprintln!("{}", "❌ Not an Elaine project. Run `eln init` first.".red());
         return;
     }
 
     match project_id {
+        Some(pid) if delete => delete_project(&pid),
         Some(pid) => switch_project(&pid),
         None => list_projects(),
     }
 }
+
+
+fn delete_project(selector: &str) {
+    let pid = match resolve_project(selector) {
+        Ok(p) => p,
+        Err(e) => {
+            print_project_resolve_error(e);
+            return;
+        }
+    };
+
+    let path = crate::project_store::project_path(&pid);
+
+    if !path.exists() {
+        eprintln!(
+            "{}",
+            format!("❌ Project '{}' not found", pid).red()
+        );
+        return;
+    }
+
+    fs::remove_file(&path)
+        .expect("❌ Failed to delete project file");
+
+    // Clear active project if needed
+    let mut index = load_index();
+    if index.active_project.as_deref() == Some(&pid) {
+        index.active_project = None;
+        save_index(&index);
+    }
+
+    println!(
+        "{}",
+        format!("🗑️  Deleted project '{}' (references preserved)", pid)
+            .bright_green()
+            .bold()
+    );
+}
+
 
 fn switch_project(project_id: &str) {
     create_project_if_missing(project_id);
@@ -37,7 +82,7 @@ fn list_projects() {
     let index = load_index();
     let active = index.active_project;
 
-    let mut projects: Vec<(String, usize)> = Vec::new();
+    let mut projects = Vec::new();
 
     let entries = match fs::read_dir(&projects_dir) {
         Ok(e) => e,
@@ -59,7 +104,7 @@ fn list_projects() {
         };
 
         let project = load_project(&id);
-        projects.push((id, project.refs.len()));
+        projects.push(project);
     }
 
     if projects.is_empty() {
@@ -67,21 +112,23 @@ fn list_projects() {
         return;
     }
 
-    projects.sort_by(|a, b| a.0.cmp(&b.0));
+    projects.sort_by(|a, b| a.id.cmp(&b.id));
 
     println!("{}", "Projects:".bold());
 
-    for (id, count) in projects {
+    for project in projects {
         let marker = match &active {
-            Some(a) if a == &id => "*",
+            Some(a) if a == &project.id => "*",
             _ => " ",
         };
 
         println!(
-            "{} {} ({:>2} refs)",
+            "{} {} ({:>2} refs) {}",
             marker,
-            id,
-            count
+            project.id,
+            project.refs.len(),
+            sid_short(&project.sid).dimmed()
         );
+
     }
 }

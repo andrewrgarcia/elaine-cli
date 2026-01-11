@@ -5,7 +5,7 @@ use crate::reference_store::create_or_update_ref;
 use crate::state::load_index;
 use crate::project_store::{load_project, save_project};
 use crate::reference::{Reference, RefKind, Identifiers, Venue};
-use crate::utils::id::make_ref_id;
+use crate::utils::id::{make_ref_id, make_sid};
 
 pub fn run_add(interactive: bool, args: Vec<String>) {
     if interactive {
@@ -22,12 +22,13 @@ pub fn run_add(interactive: bool, args: Vec<String>) {
 }
 
 // --------------------------------------------------
-// helpers
+// Interactive
 // --------------------------------------------------
 fn run_add_interactive() {
     println!("{}", "🧩 Interactive reference entry".bold());
 
-    // --- Core required fields ---
+    // --- Core fields ----------------------------------------------------
+
     let title = prompt_required("Title");
 
     let authors_raw = prompt_required("Authors (use 'and' between names)");
@@ -103,6 +104,7 @@ fn run_add_interactive() {
 
     let reference = Reference {
         id: id.clone(),
+        sid: make_sid(),
         kind,
         title,
         authors,
@@ -125,43 +127,9 @@ fn run_add_interactive() {
     );
 }
 
-fn prompt_required(label: &str) -> String {
-    use std::io::{stdin, stdout, Write};
-
-    loop {
-        print!("{}: ", label);
-        stdout().flush().unwrap();
-
-        let mut input = String::new();
-        stdin().read_line(&mut input).unwrap();
-        let v = input.trim();
-
-        if !v.is_empty() {
-            return v.to_string();
-        }
-
-        println!("⚠️  {} is required.", label);
-    }
-}
-
-fn prompt_optional(label: &str) -> Option<String> {
-    use std::io::{stdin, stdout, Write};
-
-    print!("{} [optional]: ", label);
-    stdout().flush().unwrap();
-
-    let mut input = String::new();
-    stdin().read_line(&mut input).unwrap();
-    let v = input.trim();
-
-    if v.is_empty() {
-        None
-    } else {
-        Some(v.to_string())
-    }
-}
-
-
+// --------------------------------------------------
+// Manual
+// --------------------------------------------------
 fn run_add_manual(args: Vec<String>) {
     let title = args[0].clone();
     let authors: Vec<String> = args[1]
@@ -171,18 +139,17 @@ fn run_add_manual(args: Vec<String>) {
         .collect();
 
     if authors.is_empty() {
-        eprintln!("{}", "❌ Author field cannot be empty".red());
+        eprintln!("{}", "❌ Author field cannot be empty".red().bold());
         return;
     }
 
-    let year = args
-        .get(2)
-        .and_then(|y| y.parse::<u16>().ok());
+    let year = args.get(2).and_then(|y| y.parse::<u16>().ok());
 
     let id = make_ref_id(&authors, year, &title);
 
     let reference = Reference {
         id: id.clone(),
+        sid: make_sid(), // ✅ REQUIRED
         kind: RefKind::Article,
         title,
         authors,
@@ -208,7 +175,9 @@ fn run_add_manual(args: Vec<String>) {
 
     println!(
         "{}",
-        format!("📚 Added reference '{}'", id).bright_green()
+        format!("📚 Added reference '{}'", id)
+            .bright_green()
+            .bold()
     );
 }
 
@@ -220,7 +189,7 @@ fn run_add_bibtex() {
         .expect("❌ Failed to read stdin");
 
     if input.trim().is_empty() {
-        eprintln!("{}", "❌ No input provided".red());
+        eprintln!("{}", "❌ No input provided".red().bold());
         return;
     }
 
@@ -259,18 +228,60 @@ fn run_add_bibtex() {
             "{}",
             format!("🔗 Attached references to project '{}'", p.id)
                 .bright_green()
+                .bold()
         );
     }
 }
 
+// --------------------------------------------------
+// Helpers
+// --------------------------------------------------
 fn attach_to_active_project(ref_id: &str) {
     let index = load_index();
-
     if let Some(pid) = index.active_project {
         let mut project = load_project(&pid);
         if !project.refs.contains(&ref_id.to_string()) {
             project.refs.push(ref_id.to_string());
             save_project(&project);
         }
+    }
+}
+
+fn prompt_required(label: &str) -> String {
+    use std::io::{stdin, stdout, Write};
+
+    loop {
+        print!("{}: ", label);
+        stdout().flush().unwrap();
+
+        let mut input = String::new();
+        stdin().read_line(&mut input).unwrap();
+        let v = input.trim();
+
+        if !v.is_empty() {
+            return v.to_string();
+        }
+
+        println!(
+            "{}",
+            format!("⚠️  {} is required.", label).yellow()
+        );
+    }
+}
+
+fn prompt_optional(label: &str) -> Option<String> {
+    use std::io::{stdin, stdout, Write};
+
+    print!("{} [optional]: ", label);
+    stdout().flush().unwrap();
+
+    let mut input = String::new();
+    stdin().read_line(&mut input).unwrap();
+    let v = input.trim();
+
+    if v.is_empty() {
+        None
+    } else {
+        Some(v.to_string())
     }
 }

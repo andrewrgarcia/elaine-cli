@@ -1,28 +1,22 @@
 use regex::Regex;
 use crate::reference::{Reference, RefKind, Identifiers, Venue};
+use crate::utils::id::make_sid;
 
 pub fn parse_bibtex(input: &str) -> Vec<Reference> {
     let entry_re =
         Regex::new(r"(?is)@(\w+)\s*\{\s*([^,]+),([\s\S]*?)\n\}").unwrap();
 
-    // NOTE: no ^, no $, no line assumptions
     let field_re =
         Regex::new(r#"(?is)(\w+)\s*=\s*(\{([^}]*)\}|"([^"]*)")"#).unwrap();
 
     let mut refs = Vec::new();
 
     for cap in entry_re.captures_iter(input) {
-
-        println!("=== ENTRY DETECTED ===");
-        println!("RAW KIND: {}", &cap[1]);
-        println!("RAW ID  : {}", &cap[2]);
-        println!("RAW BODY:\n{}\n----------------", &cap[3]);
-
         let kind_raw = cap[1].to_lowercase();
         let id = cap[2].trim().to_string();
         let body = &cap[3];
 
-        let mut title = None;
+        let mut title: Option<String> = None;
         let mut authors = Vec::new();
         let mut editors = Vec::new();
         let mut year = None;
@@ -41,20 +35,13 @@ pub fn parse_bibtex(input: &str) -> Vec<Reference> {
 
         for f in field_re.captures_iter(body) {
             let key = f[1].to_lowercase();
-
-            // group 3 = {...}, group 4 = "..."
             let raw_val = f.get(3).or_else(|| f.get(4)).unwrap().as_str();
+
             let val = raw_val
-                .replace("\n", " ")
-                .replace("  ", " ")
-                .trim()
-                .to_string();
-
-            println!("FIELD KEY: {}", &f[1]);
-
-            let raw_val = f.get(3).or_else(|| f.get(4)).unwrap().as_str();
-            println!("FIELD VAL: {}", raw_val);
-
+                .replace('\n', " ")
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ");
 
             match key.as_str() {
                 "title" => title = Some(val),
@@ -76,6 +63,14 @@ pub fn parse_bibtex(input: &str) -> Vec<Reference> {
             }
         }
 
+        let title = match title {
+            Some(t) => t,
+            None => {
+                eprintln!("⚠️  Skipping entry '{}' (missing title)", id);
+                continue;
+            }
+        };
+
         let kind = match kind_raw.as_str() {
             "article" => RefKind::Article,
             "inproceedings" => RefKind::InProceedings,
@@ -87,8 +82,9 @@ pub fn parse_bibtex(input: &str) -> Vec<Reference> {
 
         let reference = Reference {
             id,
+            sid: make_sid(), // ✅ FIXED
             kind,
-            title: title.unwrap_or_else(|| "Untitled".to_string()),
+            title,
             authors,
             editors,
             year,
@@ -98,13 +94,8 @@ pub fn parse_bibtex(input: &str) -> Vec<Reference> {
             notes: None,
         };
 
-        println!("PARSED REFERENCE STRUCT:");
-        println!("{:#?}", reference);
-
-
         refs.push(reference);
     }
-
 
     refs
 }

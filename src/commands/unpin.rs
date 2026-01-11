@@ -1,12 +1,33 @@
 use colored::*;
+
 use crate::state::load_index;
 use crate::project_store::{load_project, save_project};
+use crate::utils::resolve::{resolve_reference, print_resolve_error};
+use crate::utils::resolve_project::{resolve_project, print_project_resolve_error};
 
-pub fn run_unpin(ref_id: String, project: Option<String>) {
+pub fn run_unpin(ref_selector: String, project_selector: Option<String>) {
+    // --- Resolve reference (SID or ID) -----------------------------------
+
+    let ref_id = match resolve_reference(&ref_selector) {
+        Ok(id) => id,
+        Err(e) => {
+            print_resolve_error(e);
+            return;
+        }
+    };
+
+    // --- Resolve project (SID or ID) -------------------------------------
+
     let index = load_index();
 
-    let pid = match project {
-        Some(p) => p,
+    let pid = match project_selector {
+        Some(sel) => match resolve_project(&sel) {
+            Ok(p) => p,
+            Err(e) => {
+                print_project_resolve_error(e);
+                return;
+            }
+        },
         None => match index.active_project {
             Some(p) => p,
             None => {
@@ -17,6 +38,8 @@ pub fn run_unpin(ref_id: String, project: Option<String>) {
     };
 
     let mut proj = load_project(&pid);
+
+    // --- Unpin -----------------------------------------------------------
 
     if !proj.refs.contains(&ref_id) {
         eprintln!(
@@ -35,7 +58,8 @@ pub fn run_unpin(ref_id: String, project: Option<String>) {
             .bright_green()
     );
 
-    // orphan detection (UX sugar, not required but very good)
+    // --- Orphan detection (PRESERVED) -----------------------------------
+
     if is_orphaned(&ref_id) {
         println!(
             "{}",

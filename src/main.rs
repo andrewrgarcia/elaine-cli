@@ -63,6 +63,9 @@ enum Commands {
 
     /// Select or list projects
     Pro {
+        #[arg(long = "delete")]
+        delete: bool,
+
         project_id: Option<String>,
     },
 
@@ -93,8 +96,9 @@ fn main() {
         Commands::Status { verbose } =>
             commands::status::run_status(verbose),
 
-        Commands::Pro { project_id } =>
-            commands::pro::run_pro(project_id),
+        Commands::Pro { project_id, delete } =>
+            commands::pro::run_pro(project_id, delete),
+
 
         Commands::Printed { all, projects } => {
             commands::printed::run_printed(all, projects)

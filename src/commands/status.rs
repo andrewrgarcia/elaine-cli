@@ -2,6 +2,8 @@ use colored::*;
 use std::fs;
 use crate::state::{elaine_dir, load_index};
 use crate::project::Project;
+use crate::reference_store::load_ref;
+use crate::utils::id::sid_short;
 
 pub fn run_status(verbose: bool) {
     if !elaine_dir().exists() {
@@ -74,11 +76,13 @@ pub fn run_status(verbose: bool) {
         let is_active = index.active_project.as_deref() == Some(&p.id);
         let marker = if is_active { "*" } else { " " };
 
+
         let line = format!(
-            "{} {}   ({} refs)",
+            "{} {}   ({} refs)   {}",
             marker,
             p.id,
-            p.refs.len()
+            p.refs.len(),
+            sid_short(&p.sid).dimmed()
         );
 
         if is_active {
@@ -89,7 +93,7 @@ pub fn run_status(verbose: bool) {
 
         if verbose {
             for rid in &p.refs {
-                println!("    {}", rid.dimmed());
+                print_ref_verbose(rid, "    ");
             }
         }
     }
@@ -106,10 +110,29 @@ pub fn run_status(verbose: bool) {
 
         if verbose {
             for rid in orphan_refs {
-                println!("  {}", rid.dimmed());
+                print_ref_verbose(&rid, "  ");
             }
         }
     }
+}
 
 
+fn print_ref_verbose(rid: &str, indent: &str) {
+    if let Some(r) = load_ref(rid) {
+        let sid_short = if r.sid.len() >= 8 {
+            &r.sid[..8]
+        } else {
+            &r.sid
+        };
+
+        println!(
+            "{}{}   {}",
+            indent,
+            r.id,
+            sid_short.dimmed()
+        );
+    } else {
+        // Defensive fallback
+        println!("{}{}", indent, rid.dimmed());
+    }
 }

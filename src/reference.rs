@@ -3,6 +3,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Reference {
     pub id: String,
+    #[serde(default)]
+    pub sid: String,
+
     pub kind: RefKind,
 
     pub title: String,

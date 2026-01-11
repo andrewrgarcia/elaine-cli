@@ -4,8 +4,18 @@ use std::io::{stdin, stdout, Write};
 use crate::state::load_index;
 use crate::project_store::{load_project, save_project};
 use crate::reference_store::{ref_path};
+use crate::utils::resolve::{resolve_reference, print_resolve_error};
 
 pub fn run_rm(ref_id: String) {
+    // --- Resolve selector (hash or ID) -----------------------------------
+    let ref_id = match resolve_reference(&ref_id) {
+        Ok(id) => id,
+        Err(e) => {
+            print_resolve_error(e);
+            return;
+        }
+    };
+
     let index = load_index();
 
     let pid = match index.active_project {

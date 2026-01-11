@@ -93,14 +93,18 @@ pub fn run_edit(ref_id: String) {
 }
 
 fn try_load(ref_id: &str) -> Option<Reference> {
-    match std::panic::catch_unwind(|| load_ref(ref_id)) {
-        Ok(r) => Some(r),
-        Err(_) => {
-            eprintln!("{}", format!("❌ Reference '{}' not found", ref_id).red());
+    match load_ref(ref_id) {
+        Some(r) => Some(r),
+        None => {
+            eprintln!(
+                "{}",
+                format!("❌ Reference '{}' not found", ref_id).red()
+            );
             None
         }
     }
 }
+
 
 fn prompt_edit(label: &str, current: &str) -> String {
     print!("{} [{}]: ", label, current);
