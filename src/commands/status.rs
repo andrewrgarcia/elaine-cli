@@ -119,20 +119,29 @@ pub fn run_status(verbose: bool) {
 
 fn print_ref_verbose(rid: &str, indent: &str) {
     if let Some(r) = load_ref(rid) {
-        let sid_short = if r.sid.len() >= 8 {
-            &r.sid[..8]
-        } else {
-            &r.sid
-        };
+        let sid_short = sid_short(&r.sid);
+        let doc = if !r.attachments.is_empty() { " 📄" } else { "" };
 
         println!(
-            "{}{}   {}",
+            "{}{}   {}{}",
             indent,
             r.id,
-            sid_short.dimmed()
+            sid_short.dimmed(),
+            doc
         );
+
+        for a in &r.attachments {
+            println!(
+                "{}  ↳ {}",
+                indent,
+                std::path::Path::new(a)
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .dimmed()
+            );
+        }
     } else {
-        // Defensive fallback
         println!("{}{}", indent, rid.dimmed());
     }
 }

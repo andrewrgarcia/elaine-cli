@@ -35,6 +35,29 @@ enum Commands {
         args: Vec<String>,
     },
 
+    /// Attach a local document (PDF) to a reference
+    Attach {
+        reference: String,
+        path: String,
+    },
+
+    /// Remove attachment(s) from a reference
+    Detach {
+        reference: String,
+
+        /// Attachment index (1-based)
+        index: Option<usize>,
+
+        /// Remove all attachments
+        #[arg(long)]
+        all: bool,
+    },
+
+    /// Open attached document(s) for a reference
+    Open {
+        reference: String,
+    },
+
     /// Edit an existing reference
     Edit {
         ref_id: String,
@@ -90,6 +113,16 @@ fn main() {
     match cli.command {
         Commands::Init => commands::init::run_init(),
         Commands::Add { interactive, args } => commands::add::run_add(interactive, args),
+        
+        Commands::Attach { reference, path } =>
+            commands::attach::run_attach(reference, path),
+
+        Commands::Detach { reference, index, all } =>
+            commands::detach::run_detach(reference, index, all),
+
+        Commands::Open { reference } =>
+            commands::open::run_open(reference),
+
         Commands::Edit { ref_id } => commands::edit::run_edit(ref_id),
         Commands::Rm { ref_id } => commands::rm::run_rm(ref_id),
 

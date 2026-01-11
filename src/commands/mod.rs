@@ -8,3 +8,6 @@ pub mod rm;
 pub mod pin;
 pub mod unpin;
 pub mod search;
+pub mod attach;
+pub mod detach;
+pub mod open;

@@ -82,7 +82,7 @@ pub fn parse_bibtex(input: &str) -> Vec<Reference> {
 
         let reference = Reference {
             id,
-            sid: make_sid(), // ✅ FIXED
+            sid: make_sid(),
             kind,
             title,
             authors,
@@ -92,6 +92,7 @@ pub fn parse_bibtex(input: &str) -> Vec<Reference> {
             venue: Some(venue),
             tags: Vec::new(),
             notes: None,
+            attachments: Vec::new(),
         };
 
         refs.push(reference);

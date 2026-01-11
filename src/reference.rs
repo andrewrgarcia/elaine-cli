@@ -3,22 +3,24 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Reference {
     pub id: String,
+
     #[serde(default)]
     pub sid: String,
 
     pub kind: RefKind,
-
     pub title: String,
     pub authors: Vec<String>,
     pub editors: Vec<String>,
     pub year: Option<u16>,
-
     pub identifiers: Identifiers,
     pub venue: Option<Venue>,
-
     pub tags: Vec<String>,
     pub notes: Option<String>,
+
+    #[serde(default)]
+    pub attachments: Vec<String>,
 }
+
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum RefKind {

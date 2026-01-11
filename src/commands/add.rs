@@ -114,6 +114,7 @@ fn run_add_interactive() {
         venue: Some(venue),
         tags,
         notes,
+        attachments: Vec::new(),
     };
 
     create_or_update_ref(reference);
@@ -168,6 +169,7 @@ fn run_add_manual(args: Vec<String>) {
         }),
         tags: vec![],
         notes: None,
+        attachments: Vec::new()
     };
 
     create_or_update_ref(reference);
