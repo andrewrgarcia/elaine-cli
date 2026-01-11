@@ -10,12 +10,12 @@
   <a href="https://crates.io/crates/elaine-cli"><img src="https://img.shields.io/crates/v/elaine-cli.svg" /></a>
   <a href="https://github.com/andrewrgarcia/elaine-cli"><img src="https://img.shields.io/github/stars/andrewrgarcia/elaine-cli" /></a>
   <a href="#"><img src="https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-blue" /></a>
-  <a href="#"><img src="https://img.shields.io/badge/status-v0.2.0-green" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/status-v0.4.0-green" /></a>
 </p>
 
 <p align="center">
-  <strong>An opinionated, local-first reference manager for TeX users.</strong><br/>
-  Add references fast. Organize by project. Print clean, deterministic BibTeX.
+  <strong>An opinionated, local-first, CLI reference manager for LaTeX / BibTeX users.</strong><br/>
+  Deterministic metadata. Explicit projects. Optional document attachments.
 </p>
 
 <p align="center">
@@ -26,9 +26,14 @@
 
 ## Elaine — CLI Reference Management for Researchers
 
-Elaine is a lightweight command-line reference manager designed for researchers, engineers, and writers who work directly with **LaTeX / BibTeX** and want **clarity, determinism, and local ownership**.
+Elaine is a lightweight command-line reference manager designed for researchers, engineers, and writers who:
 
-Elaine does not try to be a PDF library, a cloud sync tool, or a GUI replacement for Zotero.  
+* write LaTeX directly
+* want deterministic BibTeX
+* want full local ownership
+* want references to behave like code and data
+
+Elaine does not try to be a PDF library, a cloud sync tool, or a PDF hoarder.
 It focuses on **one thing**: managing references cleanly and compiling reliable `.bib` files.
 
 ---
@@ -51,47 +56,102 @@ Elaine takes a different approach:
 
 ---
 
-## Core Concepts
+## Core ideas
 
 ### Reference atoms
 
-Each reference is stored as a single YAML file:
+Each reference is a **single YAML file**:
 
 ```
 .elaine/refs/<reference-id>.yaml
 ```
 
-This makes references:
+References are:
 
-- editable
-- diffable
-- reusable across projects
+* atomic
+* editable
+* diffable
+* reusable across projects
+
+Each reference has:
+
+* a **semantic ID** (human-readable, derived)
+* an **opaque SID** (UUID v4, stable and collision-free)
 
 ---
 
 ### Projects
 
-Projects are named collections of references:
+Projects are explicit collections of references:
 
 ```
 .elaine/projects/<project>.yaml
 ```
 
-A reference can belong to **multiple projects** without duplication,
-and can be emitted once when compiling a multi-project or global bibliography.
+A reference can belong to **multiple projects** without duplication.
+
+Projects also have opaque SIDs.
 
 ---
 
-### Opinionated ingestion
+### Selectors (IDs & SIDs)
 
-Elaine intentionally enforces a **simple BibTeX grammar**.
+Anywhere Elaine expects a reference or project, you may use:
 
-**Requirement:**
-> Each BibTeX entry must end with a closing brace `}`.
+* full ID
+* full SID
+* **unique prefix** of either
 
-This constraint ensures deterministic parsing and avoids silent metadata corruption.
+Examples:
 
-If parsing fails, Elaine tells you exactly why.
+```bash
+eln edit rush1988
+eln open 55b3ed28
+eln pin 9c2128b9 crystal
+eln pro --delete d084
+```
+
+Ambiguous prefixes are rejected explicitly.
+
+---
+
+## Attachments (PDFs, local artifacts)
+
+Elaine supports **linking local documents** (e.g. PDFs) to references.
+
+Attachments are:
+
+* filesystem paths (absolute or relative)
+* never copied, moved, or synced
+* optional and explicit
+
+### Attach a document
+
+```bash
+eln attach <ref-selector> /path/to/paper.pdf
+```
+
+### Open an attachment
+
+```bash
+eln open <ref-selector>
+```
+
+Opens the **first attachment** using the system default viewer.
+
+### Detach attachments
+
+```bash
+eln detach <ref-selector>        # remove first attachment
+eln detach <ref-selector> 2      # remove attachment at index
+eln detach <ref-selector> --all  # remove all attachments
+```
+
+In verbose status output, references with attachments are marked:
+
+```
+📄
+```
 
 ---
 
@@ -111,22 +171,22 @@ cargo install --path . --force
 
 ---
 
-## Project Structure
+## Project layout
 
 ```
 .elaine/
  ├── index.yaml              # active project pointer
- ├── projects/               # project definitions
+ ├── projects/
  │    └── <project>.yaml
- └── refs/                   # reference atoms
+ └── refs/
       └── <ref-id>.yaml
 ```
 
-All files are plain YAML.
+Everything is plain text (YAML).
 
 ---
 
-## Core Commands
+## Core commands
 
 ### Initialize
 
@@ -134,174 +194,106 @@ All files are plain YAML.
 eln init
 ```
 
-Creates the `.elaine/` directory structure.
-
 ---
 
 ### Add references
 
-#### 1. BibTeX via stdin
+#### BibTeX (stdin)
 
 ```bash
 eln add < references.bib
 ```
 
-Elaine will:
+Elaine parses, validates, and stores references atomically.
 
-* parse metadata
-* store reference atoms
-* attach them to the active project
-* prompt before overwriting existing IDs
-
----
-
-#### 2. Manual add (fast)
+#### Manual
 
 ```bash
-eln add "Title" "Author One and Author Two" 2024
+eln add "The Satanic Verses" "Rushdie, Salman" 1988
 ```
 
-Only **title** and **author(s)** are required.
-Year is optional.
-
----
-
-#### 3. Interactive mode
+#### Interactive
 
 ```bash
 eln add -i
 ```
 
-Guided, prompt-based entry for all supported metadata fields
-(press Enter to skip optional fields).
+---
+
+### Edit references
+
+```bash
+eln edit <ref-selector>
+```
+
+Interactive editing with safe ID reconciliation.
 
 ---
 
-### Manage projects
+### Projects
 
 ```bash
-eln pro <project-name>
-```
-
-Creates or switches the active project.
-
-```bash
+eln pro <project>
 eln pro
+eln pro --delete <project-selector>
 ```
 
-Lists all projects and highlights the active one.
+Deleting a project **never deletes references**.
 
 ---
 
-### View status
+### Status
 
 ```bash
 eln status
-```
-
-Shows all projects and reference counts.
-
-```bash
 eln status -v
 ```
 
-Verbose mode: includes reference IDs per project.
+Verbose mode shows:
+
+* reference IDs
+* short SIDs
+* attachment indicators
 
 ---
 
-### Orphaned references
-
-A reference is considered **orphaned** if it exists in Elaine’s registry
-but is not currently pinned to any project.
-
-This can happen intentionally (e.g. when reorganizing projects) or
-temporarily.
-
-Orphaned references:
-
-- are never deleted automatically
-- remain editable and reusable
-- are surfaced explicitly in `eln status`
+### Pin / unpin
 
 ```bash
-eln status
+eln pin <ref> [project]
+eln unpin <ref> [project]
 ```
 
-Example:
+Unpinned references become **orphaned**, never auto-deleted.
 
-```text
-Elaine Status
-─────────────
-  thesis   (12 refs)
-  survey   (8 refs)
-
-Orphaned references (1)
-```
-
-To see the orphaned reference IDs:
-
-```bash
-eln status -v
-```
-
---- 
+---
 
 ### Remove references
 
 ```bash
-eln rm <ref-id>
+eln rm <ref>
 ```
 
-Removes a reference from the active project.
-
-If the reference is unused globally, Elaine will ask whether to delete
-the reference file as well.
+Elaine prompts before deleting globally unused references.
 
 ---
 
-### Pin and unpin references
-
-Elaine treats references as independent objects that can be **pinned** to one or more projects.
-
-Pinning does not duplicate references — it simply adds the reference ID
-to a project’s reference set.
-
-#### Pin a reference
+### Search (external lookup)
 
 ```bash
-eln pin <ref-id>
+eln search <ref>
 ```
 
-Pins an existing reference to the active project.
+Search hierarchy:
 
-```bash
-eln pin <ref-id> <project>
-```
+1. DOI
+2. Stored URL
+3. Semantic Scholar
+4. General web search
 
-Pins the reference to a specific project.
-
-If the reference is already pinned, Elaine will report it and do nothing.
+Results are **links**, not imports.
 
 ---
-
-#### Unpin a reference
-
-```bash
-eln unpin <ref-id>
-```
-
-Unpins the reference from the active project.
-
-```bash
-eln unpin <ref-id> <project>
-```
-
-Unpins the reference from a specific project.
-
-If a reference is unpinned from its **last project**, it becomes **orphaned**
-but is **not deleted**.
-
---- 
 
 ### Print bibliography
 
@@ -380,8 +372,7 @@ eln printed --all
 
 ---
 
-## Design Principles
-
+## Design principles
 Elaine is built around a few non-negotiables:
 
 * **Local-first** — no cloud, no accounts
@@ -392,20 +383,15 @@ Elaine is built around a few non-negotiables:
 * **Explicit scope** — global and multi-project actions are always opt-in
 * **No hidden state** — orphaned references are surfaced explicitly
 
-
 ---
 
 ## Roadmap
 
-Planned improvements include:
-
-* Short reference / project selectors (prefix- or hash-based)
-* `eln edit <ref-id>` (interactive editing)
-* `eln ls` (list refs in active project)
-* `eln find <query>`
+* Attachment metadata (page count, checksum)
+* `$EDITOR` integration
 * Validation / linting (`eln check`)
-* Optional editor integration (`$EDITOR`)
-* Schema versioning and migrations
+* Reference listing / filtering
+* Optional metadata enrichment
 
 ---
 
