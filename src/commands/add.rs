@@ -13,6 +13,11 @@ pub fn run_add(interactive: bool, args: Vec<String>) {
         return;
     }
 
+    if !args.is_empty() && args.iter().all(|a| is_bib_file(a)) {
+        run_add_bib_files(args);
+        return;
+    }
+
     if args.len() >= 2 {
         run_add_manual(args);
         return;
@@ -21,9 +26,7 @@ pub fn run_add(interactive: bool, args: Vec<String>) {
     run_add_bibtex();
 }
 
-// --------------------------------------------------
-// Interactive
-// --------------------------------------------------
+
 fn run_add_interactive() {
     println!("{}", "🧩 Interactive reference entry".bold());
 
@@ -128,9 +131,65 @@ fn run_add_interactive() {
     );
 }
 
-// --------------------------------------------------
-// Manual
-// --------------------------------------------------
+
+fn run_add_bib_files(paths: Vec<String>) {
+    let mut combined = String::new();
+
+    for p in &paths {
+        match std::fs::read_to_string(p) {
+            Ok(s) => {
+                let normalized = normalize_bibtex_for_regex(&s);
+                combined.push_str(&normalized);
+                combined.push('\n');
+            }
+            Err(e) => {
+                eprintln!(
+                    "{} {} ({})",
+                    "❌ Failed to read".red().bold(),
+                    p,
+                    e
+                );
+                return;
+            }
+        }
+    }
+
+    let refs = parse_bibtex(&combined);
+
+    if refs.is_empty() {
+        eprintln!("{}", "❌ No BibTeX entries detected".red().bold());
+        return;
+    }
+
+    let index = load_index();
+    let mut project = index
+        .active_project
+        .as_ref()
+        .map(|pid| load_project(pid));
+
+    for r in refs {
+        let rid = r.id.clone();
+        create_or_update_ref(r);
+
+        if let Some(ref mut p) = project {
+            if !p.refs.contains(&rid) {
+                p.refs.push(rid);
+            }
+        }
+    }
+
+    if let Some(p) = project {
+        save_project(&p);
+        println!(
+            "{}",
+            format!("🔗 Attached references to project '{}'", p.id)
+                .bright_green()
+                .bold()
+        );
+    }
+}
+
+
 fn run_add_manual(args: Vec<String>) {
     let title = args[0].clone();
     let authors: Vec<String> = args[1]
@@ -195,7 +254,8 @@ fn run_add_bibtex() {
         return;
     }
 
-    let refs = parse_bibtex(&input);
+    let normalized = normalize_bibtex_for_regex(&input);
+    let refs = parse_bibtex(&normalized);
 
     if refs.is_empty() {
         eprintln!(
@@ -235,9 +295,30 @@ fn run_add_bibtex() {
     }
 }
 
+
 // --------------------------------------------------
 // Helpers
 // --------------------------------------------------
+fn is_bib_file(arg: &str) -> bool {
+    arg.ends_with(".bib") && std::path::Path::new(arg).exists()
+}
+
+fn normalize_bibtex_for_regex(input: &str) -> String {
+    input
+        .lines()
+        .map(|line| {
+            let trimmed = line.trim_start();
+            if trimmed == "}" {
+                "}".to_string()
+            } else {
+                line.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+
 fn attach_to_active_project(ref_id: &str) {
     let index = load_index();
     if let Some(pid) = index.active_project {

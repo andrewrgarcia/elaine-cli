@@ -119,7 +119,7 @@ fn print_projects(
         if is_active {
             println!("{}", line.bright_green().bold());
         } else {
-            println!("{}", line);
+            println!("{}", line.bright_green());
         }
 
         if verbose >= 1 {

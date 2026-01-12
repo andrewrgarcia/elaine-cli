@@ -12,18 +12,30 @@ pub fn sid_short(sid: &str) -> &str {
 }
 
 pub fn make_ref_id(authors: &[String], year: Option<u16>, title: &str) -> String {
-    let author_part = authors
+    let author_part: String = authors
         .get(0)
         .map(|a| {
-            a.split(',')
-                .next()
-                .unwrap_or(a)
-                .to_lowercase()
+            let last = if a.contains(',') {
+                // "Last, First"
+                a.split(',')
+                    .next()
+                    .unwrap()
+                    .trim()
+            } else {
+                // "First Last" → take last token
+                a.split_whitespace()
+                    .last()
+                    .unwrap_or(a)
+            };
+
+            last.to_lowercase()
                 .chars()
                 .filter(|c| c.is_alphanumeric())
-                .collect::<String>()
+                .take(5)
+                .collect()
         })
-        .unwrap_or_else(|| "unknown".to_string());
+        .unwrap_or_else(|| "unkno".to_string());
+
 
     let year_part = year.unwrap_or(0);
 
@@ -31,7 +43,7 @@ pub fn make_ref_id(authors: &[String], year: Option<u16>, title: &str) -> String
         .to_lowercase()
         .chars()
         .filter(|c| c.is_alphanumeric())
-        .take(10)
+        .take(6)
         .collect();
 
     format!("{}{:04}{}", author_part, year_part, title_part)

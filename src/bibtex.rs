@@ -13,7 +13,13 @@ pub fn parse_bibtex(input: &str) -> Vec<Reference> {
 
     for cap in entry_re.captures_iter(input) {
         let kind_raw = cap[1].to_lowercase();
-        let id = cap[2].trim().to_string();
+        // let id = cap[2].trim().to_string();
+        let id = cap[2]
+            .trim()
+            .replace('/', "_")
+            .replace(':', "_")
+            .to_string();
+
         let body = &cap[3];
 
         let mut title: Option<String> = None;
