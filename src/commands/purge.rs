@@ -1,14 +1,12 @@
 use std::collections::HashSet;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use colored::*;
 use regex::Regex;
 use walkdir::WalkDir;
 
-use crate::reference_store::{load_all_refs, save_ref};
-
-pub fn run_purge(path: String, force: bool) {
+pub fn run_purge(path: String, _force: bool) {
     let root = Path::new(&path);
 
     if !root.exists() {
@@ -17,69 +15,35 @@ pub fn run_purge(path: String, force: bool) {
     }
 
     println!("{}", "🔎 Scanning LaTeX files…".bold());
+    let cited_keys = collect_tex_keys(root);
 
-    let cited = collect_citations(root);
+    println!(
+        "{}",
+        format!("Found {} cited keys", cited_keys.len())
+            .bright_green()
+    );
 
-    if cited.is_empty() {
-        println!("{}", "⚠️  No citations detected.".yellow());
-    } else {
-        println!(
-            "{}",
-            format!("Found {} cited keys", cited.len())
-                .bright_green()
-        );
+    println!("{}", "📚 Scanning .bib files…".bold());
+    let bib_files = collect_bib_files(root);
+
+    if bib_files.is_empty() {
+        println!("{}", "⚠️  No .bib files found.".yellow());
+        return;
     }
 
-    let mut refs = load_all_refs();
-
-    let mut newly_uncited = Vec::new();
-    let mut newly_cited = Vec::new();
-
-    for r in refs.iter_mut() {
-        let is_cited = cited.contains(&r.id);
-
-        match (r.uncited, is_cited) {
-            (false, false) => {
-                r.uncited = true;
-                newly_uncited.push(r.id.clone());
-            }
-            (true, true) => {
-                r.uncited = false;
-                newly_cited.push(r.id.clone());
-            }
-            _ => {}
-        }
-
-        if force {
-            save_ref(r);
-        }
+    for bib_path in bib_files {
+        purge_single_bib(&bib_path, &cited_keys);
     }
 
     println!();
-    println!("{}", "Purge results".bold());
-    println!("{}", "─────────────".dimmed());
-
-    println!("Uncited: {}", newly_uncited.len());
-    for id in &newly_uncited {
-        println!("  {}", id.red());
-    }
-
-    println!("Re-cited: {}", newly_cited.len());
-    for id in &newly_cited {
-        println!("  {}", id.green());
-    }
-
-    if !force {
-        println!();
-        println!("{}", "Dry run. Use --force to apply changes.".yellow());
-    } else {
-        println!();
-        println!("{}", "✔️  YAML updated.".bright_green().bold());
-    }
+    println!("{}", "✔️  Purge complete (non-destructive).".bright_green().bold());
 }
 
+// ============================================================
+// TEX
+// ============================================================
 
-fn collect_citations(root: &Path) -> HashSet<String> {
+fn collect_tex_keys(root: &Path) -> HashSet<String> {
     let mut keys = HashSet::new();
 
     let cite_re =
@@ -107,4 +71,143 @@ fn collect_citations(root: &Path) -> HashSet<String> {
     }
 
     keys
+}
+
+// ============================================================
+// BIB
+// ============================================================
+
+fn collect_bib_files(root: &Path) -> Vec<PathBuf> {
+    WalkDir::new(root)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| {
+            let path = e.path();
+
+            if path.extension().and_then(|s| s.to_str()) != Some("bib") {
+                return false;
+            }
+
+            // 🔥 Ignore already purged files
+            if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
+                if name.ends_with("_purged.bib") {
+                    return false;
+                }
+            }
+
+            true
+        })
+        .map(|e| e.into_path())
+        .collect()
+}
+
+fn purge_single_bib(path: &Path, cited: &HashSet<String>) {
+    let content = match fs::read_to_string(path) {
+        Ok(c) => c,
+        Err(_) => {
+            eprintln!(
+                "{}",
+                format!("❌ Failed to read {}", path.display())
+                    .red()
+            );
+            return;
+        }
+    };
+
+    let entries = parse_bib_entries(&content);
+
+    let mut kept_blocks = Vec::new();
+    let mut kept_count = 0;
+    let mut removed_count = 0;
+
+    for (key, block) in entries {
+        if cited.contains(&key) {
+            kept_blocks.push(block);
+            kept_count += 1;
+        } else {
+            removed_count += 1;
+        }
+    }
+
+    let output_path = purged_path(path);
+
+    let mut new_content = String::new();
+    for block in kept_blocks {
+        new_content.push_str(&block);
+        if !block.ends_with('\n') {
+            new_content.push('\n');
+        }
+        new_content.push('\n');
+    }
+
+    if let Err(_) = fs::write(&output_path, new_content) {
+        eprintln!(
+            "{}",
+            format!("❌ Failed writing {}", output_path.display())
+                .red()
+        );
+        return;
+    }
+
+    println!(
+        "{} → {} (kept {}, removed {})",
+        path.file_name().unwrap().to_string_lossy(),
+        output_path.file_name().unwrap().to_string_lossy(),
+        kept_count.to_string().green(),
+        removed_count.to_string().red()
+    );
+}
+
+fn purged_path(original: &Path) -> PathBuf {
+    let stem = original
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("output");
+
+    let parent = original.parent().unwrap_or(Path::new("."));
+
+    parent.join(format!("{}_purged.bib", stem))
+}
+
+// ============================================================
+// ENTRY PARSER (brace depth safe)
+// ============================================================
+
+fn parse_bib_entries(content: &str) -> Vec<(String, String)> {
+    let mut entries = Vec::new();
+    let mut current = String::new();
+    let mut depth = 0;
+    let mut current_key: Option<String> = None;
+
+    let entry_start =
+        Regex::new(r"@[\w]+\{([^,]+),")
+            .unwrap();
+
+    for line in content.lines() {
+        if current.is_empty() {
+            if let Some(cap) = entry_start.captures(line) {
+                current_key = Some(cap[1].trim().to_string());
+                current.push_str(line);
+                current.push('\n');
+
+                depth = line.matches('{').count() as i32
+                      - line.matches('}').count() as i32;
+            }
+        } else {
+            current.push_str(line);
+            current.push('\n');
+
+            depth += line.matches('{').count() as i32
+                   - line.matches('}').count() as i32;
+
+            if depth == 0 {
+                if let Some(key) = current_key.take() {
+                    entries.push((key, current.clone()));
+                }
+                current.clear();
+            }
+        }
+    }
+
+    entries
 }

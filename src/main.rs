@@ -88,6 +88,15 @@ enum Commands {
         sort: Option<String>,
     },
 
+    /// Analyze LaTeX project and mark uncited references
+    Purge {
+        /// Path to LaTeX project root
+        path: String,
+
+        /// Apply changes (default is dry run)
+        #[arg(long)]
+        force: bool,
+    },
 
     Search {
         ref_selector: String,
@@ -142,6 +151,9 @@ fn main() {
 
         Commands::Status { verbose, sort } =>
             commands::status::run_status(verbose, sort),
+
+        Commands::Purge { path, force } =>
+            commands::purge::run_purge(path, force),
 
         Commands::Search { ref_selector } =>
             commands::search::run_search(ref_selector),

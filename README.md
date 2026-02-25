@@ -394,6 +394,51 @@ library-level bibliographies.
 
 ---
 
+## Purge (LaTeX-aware BibTeX minimization)
+
+Elaine can generate minimized `.bib` files based on what your LaTeX project actually cites.
+
+```bash
+eln purge <path>
+```
+
+Example:
+
+```bash
+eln purge .
+```
+
+Elaine will:
+
+* Scan all `.tex` files under the given path
+* Detect all `\cite{}` keys
+* Analyze every `.bib` file in the directory
+* Generate new `_purged.bib` files containing **only cited entries**
+
+Original `.bib` files are never modified.
+
+Example output:
+
+```
+references.bib → references_purged.bib (kept 8, removed 24)
+global_references.bib → global_references_purged.bib (kept 0, removed 0)
+```
+
+### Design guarantees
+
+* Non-destructive
+* Strict per-file filtering
+* Idempotent (running twice produces identical results)
+* YAML-agnostic (works without `.elaine`)
+
+This allows Elaine to operate cleanly in:
+
+* Pure `.bib` workflows
+* Hybrid `.bib` + `.elaine` projects
+* Non-Elaine LaTeX repositories
+
+---
+
 ## Example Workflow
 
 ```bash
