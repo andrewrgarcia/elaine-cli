@@ -3,7 +3,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use colored::*;
-use regex::Regex;
 use walkdir::WalkDir;
 
 pub fn run_purge(path: String, _force: bool) {
@@ -46,10 +45,6 @@ pub fn run_purge(path: String, _force: bool) {
 fn collect_tex_keys(root: &Path) -> HashSet<String> {
     let mut keys = HashSet::new();
 
-    let cite_re =
-        Regex::new(r"\\cite[a-zA-Z*]*\{([^}]+)\}")
-            .unwrap();
-
     for entry in WalkDir::new(root)
         .into_iter()
         .filter_map(|e| e.ok())
@@ -63,14 +58,75 @@ fn collect_tex_keys(root: &Path) -> HashSet<String> {
         let content = fs::read_to_string(path)
             .unwrap_or_default();
 
-        for caps in cite_re.captures_iter(&content) {
-            for key in caps[1].split(',') {
-                keys.insert(key.trim().to_string());
-            }
-        }
+        extract_citations_from_tex(&content, &mut keys);
     }
 
     keys
+}
+
+fn extract_citations_from_tex(content: &str, keys: &mut HashSet<String>) {
+    let bytes = content.as_bytes();
+    let mut i = 0;
+
+    while i < bytes.len() {
+        // Look for \cite
+        if bytes[i] == b'\\' {
+            if content[i..].starts_with("\\cite") {
+                i += 5;
+
+                // Skip optional letters (citep, citet, citealp, etc.)
+                while i < bytes.len() && bytes[i].is_ascii_alphabetic() {
+                    i += 1;
+                }
+
+                // Skip optional *
+                if i < bytes.len() && bytes[i] == b'*' {
+                    i += 1;
+                }
+
+                // Skip whitespace
+                while i < bytes.len() && bytes[i].is_ascii_whitespace() {
+                    i += 1;
+                }
+
+                // Must now be {
+                if i < bytes.len() && bytes[i] == b'{' {
+                    i += 1;
+                    let start = i;
+                    let mut depth = 1;
+
+                    while i < bytes.len() && depth > 0 {
+                        match bytes[i] {
+                            b'{' => depth += 1,
+                            b'}' => depth -= 1,
+                            _ => {}
+                        }
+                        i += 1;
+                    }
+
+                    let end = i - 1; // exclude closing brace
+
+                    if end > start {
+                        let inside = &content[start..end];
+
+                        for raw_key in inside.split(',') {
+                            let cleaned = raw_key
+                                .trim()
+                                .replace("\\_", "_");
+
+                            if !cleaned.is_empty() {
+                                keys.insert(cleaned);
+                            }
+                        }
+                    }
+                }
+            } else {
+                i += 1;
+            }
+        } else {
+            i += 1;
+        }
+    }
 }
 
 // ============================================================
@@ -175,37 +231,66 @@ fn purged_path(original: &Path) -> PathBuf {
 
 fn parse_bib_entries(content: &str) -> Vec<(String, String)> {
     let mut entries = Vec::new();
-    let mut current = String::new();
-    let mut depth = 0;
-    let mut current_key: Option<String> = None;
+    let bytes = content.as_bytes();
+    let mut i = 0;
 
-    let entry_start =
-        Regex::new(r"@[\w]+\{([^,]+),")
-            .unwrap();
+    while i < bytes.len() {
+        if bytes[i] == b'@' {
+            let start = i;
+            i += 1;
 
-    for line in content.lines() {
-        if current.is_empty() {
-            if let Some(cap) = entry_start.captures(line) {
-                current_key = Some(cap[1].trim().to_string());
-                current.push_str(line);
-                current.push('\n');
-
-                depth = line.matches('{').count() as i32
-                      - line.matches('}').count() as i32;
+            // find first '{'
+            while i < bytes.len() && bytes[i] != b'{' {
+                i += 1;
             }
-        } else {
-            current.push_str(line);
-            current.push('\n');
 
-            depth += line.matches('{').count() as i32
-                   - line.matches('}').count() as i32;
+            if i >= bytes.len() {
+                break;
+            }
 
-            if depth == 0 {
-                if let Some(key) = current_key.take() {
-                    entries.push((key, current.clone()));
+            i += 1; // skip '{'
+            let key_start = i;
+
+            while i < bytes.len() && bytes[i] != b',' {
+                i += 1;
+            }
+
+            if i >= bytes.len() {
+                break;
+            }
+
+            let key = content[key_start..i]
+                .trim()
+                .replace("\\_", "_");
+
+            let mut depth = 1;
+            i += 1;
+
+            while i < bytes.len() {
+                match bytes[i] {
+                    b'{' => depth += 1,
+                    b'}' => {
+                        depth -= 1;
+                        if depth == 0 {
+                            i += 1;
+                            break;
+                        }
+                    }
+                    b'@' if depth > 0 => {
+                        // 🔥 RECOVERY POINT
+                        // malformed entry — resync
+                        break;
+                    }
+                    _ => {}
                 }
-                current.clear();
+                i += 1;
             }
+
+            let end = i.min(bytes.len());
+            let block = content[start..end].to_string();
+            entries.push((key, block));
+        } else {
+            i += 1;
         }
     }
 
